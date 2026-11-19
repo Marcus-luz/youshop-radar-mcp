@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouShop Radar MCP — Demo Interativa (Replay Real)</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --surface: #121933;
+      --surface-alt: #182244;
+      --border: #27345f;
+      --text: #e9eefc;
+      --muted: #9fb0db;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.14);
+      --green: #34d399;
+      --green-soft: rgba(52, 211, 153, 0.14);
+      --amber: #fbbf24;
+      --amber-soft: rgba(251, 191, 36, 0.14);
+      --red: #f87171;
+      --red-soft: rgba(248, 113, 113, 0.14);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      background: radial-gradient(circle at top right, #16224a 0%, var(--bg) 55%);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 20px 64px;
+    }
+
+    header {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px 28px;
+      margin-bottom: 20px;
+    }
+
+    .header-top {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 1.75rem;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      max-width: 720px;
+      font-size: 0.98rem;
+    }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .badge.green { background: var(--green-soft); border-color: rgba(52, 211, 153, 0.35); color: var(--green); }
+    .badge.blue { background: var(--accent-soft); border-color: rgba(56, 189, 248, 0.35); color: var(--accent); }
+    .badge.amber { background: var(--amber-soft); border-color: rgba(251, 191, 36, 0.35); color: var(--amber); }
+
+    .repo-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      background: var(--accent);
+      color: #061224;
+      font-weight: 700;
+      font-size: 0.88rem;
+      padding: 10px 16px;
+      border-radius: 10px;
+      transition: opacity 0.15s ease;
+    }
+
+    .repo-link:hover { opacity: 0.9; }
+
+    .notice {
+      background: var(--amber-soft);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      color: #fde68a;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 0.88rem;
+      margin-bottom: 22px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .sidebar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      position: sticky;
+      top: 16px;
+    }
+
+    .sidebar h2 {
+      margin: 0 0 12px;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .scene-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .scene-btn {
+      width: 100%;
+      text-align: left;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .scene-btn:hover { border-color: var(--accent); }
+
+    .scene-btn.active {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+    }
+
+    .scene-btn .scene-title {
+      display: block;
+      font-weight: 600;
+      font-size: 0.92rem;
+      margin-bottom: 4px;
+    }
+
+    .scene-btn .scene-tag {
+      display: inline-block;
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+
+    .meta-box {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .meta-box div { margin-bottom: 4px; }
+    .meta-box code { color: var(--text); font-family: var(--mono); font-size: 0.76rem; }
+
+    .stage {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+    }
+
+    .stage-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 16px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stage-header h2 {
+      margin: 0;
+      font-size: 1.25rem;
+    }
+
+    .nav-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      background: var(--surface-alt);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn:hover:not(:disabled) { border-color: var(--accent); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn.primary { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+    .chat-bubble {
+      border-radius: 14px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
+    }
+
+    .bubble-user {
+      background: #1a284f;
+      border: 1px solid #2e437d;
+    }
+
+    .bubble-assistant {
+      background: #0f172f;
+      border: 1px solid var(--border);
+    }
+
+    .bubble-label {
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .bubble-assistant .bubble-label { color: var(--green); }
+
+    .tool-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .tool-pill {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      padding: 5px 10px;
+      border-radius: 8px;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      color: var(--accent);
+    }
+
+    .tool-pill.denied {
+      background: var(--red-soft);
+      border-color: rgba(248, 113, 113, 0.4);
+      color: var(--red);
+    }
+
+    .md-content p { margin: 0 0 12px; }
+    .md-content p:last-child { margin-bottom: 0; }
+    .md-content h3 { margin: 16px 0 8px; font-size: 1rem; color: var(--accent); }
+    .md-content ul, .md-content ol { margin: 6px 0 12px 20px; padding: 0; }
+    .md-content li { margin-bottom: 4px; }
+    .md-content hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+    .md-content blockquote {
+      margin: 12px 0;
+      padding: 10px 14px;
+      border-left: 3px solid var(--amber);
+      background: var(--amber-soft);
+      border-radius: 0 8px 8px 0;
+      font-size: 0.9rem;
+    }
+    .md-content code {
+      font-family: var(--mono);
+      font-size: 0.85em;
+      background: var(--surface-alt);
+      padding: 2px 6px;
+      border-radius: 5px;
+      color: #93c5fd;
+    }
+
+    .table-wrap { overflow-x: auto; margin: 12px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+    }
+    th { background: var(--surface-alt); color: var(--accent); }
+
+    .xray-wrapper {
+      margin-top: 20px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #090e1c;
+    }
+
+    .xray-toggle {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--surface-alt);
+      color: var(--text);
+      border: none;
+      padding: 12px 16px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .xray-body {
+      display: none;
+      padding: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .xray-body.open { display: block; }
+
+    .xray-block { margin-bottom: 16px; }
+    .xray-block:last-child { margin-bottom: 0; }
+
+    .xray-title {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: var(--amber);
+      margin-bottom: 6px;
+    }
+
+    pre {
+      margin: 0;
+      padding: 12px;
+      border-radius: 8px;
+      background: #060a14;
+      border: 1px solid #1e294d;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      line-height: 1.5;
+      color: #cbd5f5;
+    }
+
+    .arch-grid {
+      margin-top: 24px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    @media (max-width: 800px) {
+      .arch-grid { grid-template-columns: 1fr; }
+    }
+
+    .arch-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+    }
+
+    .arch-card h3 {
+      margin: 0 0 8px;
+      font-size: 0.98rem;
+      color: var(--accent);
+    }
+
+    .arch-card p {
+      margin: 0;
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+
+    .error-box {
+      padding: 20px;
+      border-radius: 12px;
+      background: var(--red-soft);
+      border: 1px solid rgba(248, 113, 113, 0.4);
+      color: #fecaca;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-top">
+        <div>
+          <h1>YouShop Radar MCP</h1>
+          <p class="subtitle">
+            Protótipo funcional de agente analítico somente leitura via <strong>Model Context Protocol (MCP v2)</strong>
+            para detecção preventiva de risco de churn em produtores — cruzando webhooks, vendas e tickets com
+            isolamento de carteira e Allowlist LGPD.
+          </p>
+        </div>
+        <a class="repo-link" href="https://github.com/Marcus-luz/youshop-radar-mcp" target="_blank" rel="noopener">
+          Ver código no GitHub →
+        </a>
+      </div>
+      <div class="badges">
+        <span class="badge green">✓ MCP SDK v2 (3 Tools · 1 Resource · 1 Prompt)</span>
+        <span class="badge blue">Score Determinístico (0–100)</span>
+        <span class="badge blue">Somente Leitura · Human-in-the-Loop</span>
+        <span class="badge amber">Isolamento de Carteira + Allowlist LGPD</span>
+      </div>
+    </header>
+
+    <div class="notice" id="disclaimer-bar">
+      Carregando gravação real da sessão MCP...
+    </div>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <h2>Roteiro da Demo (5 Cenas)</h2>
+        <div class="scene-list" id="scene-list"></div>
+        <div class="meta-box" id="meta-box"></div>
+      </aside>
+
+      <main class="stage" id="stage">
+        <p>Carregando dados da sessão...</p>
+      </main>
+    </div>
+
+    <section class="arch-grid" aria-label="Arquitetura em 3 camadas">
+      <div class="arch-card">
+        <h3>1. Camada Data (SQLite + Seed)</h3>
+        <p>
+          Banco local determinístico (<code>seed=42</code>) com 8 produtores em 2 carteiras, 28 dias de pedidos,
+          webhooks e tickets. Repositório estritamente somente leitura.
+        </p>
+      </div>
+      <div class="arch-card">
+        <h3>2. Camada Domain (Score + Segurança)</h3>
+        <p>
+          Zero matemática na IA: score determinístico com travas de <code>falso_alarme_tecnico</code> e
+          <code>baixo_sazonalidade</code>, isolamento por sessão e Allowlist explícita sem PII ou segredos.
+        </p>
+      </div>
+      <div class="arch-card">
+        <h3>3. Camada MCP Server + Cliente</h3>
+        <p>
+          Adaptador fino em <code>MCPServer</code> (<code>stdio</code>) desacoplado do cliente Groq. O modelo
+          nunca escolhe <code>manager_id</code> e nunca envia mensagens reais.
+        </p>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    let replayData = null;
+    let currentIndex = 0;
+
+   function escapeHtml(text) {
+      const entities = {
+        "&": "\x26amp;",
+        "<": "\x26lt;",
+        ">": "\x26gt;",
+        '"': "\x26quot;",
+        "'": "\x26#39;",
+      };
+      return String(text).replace(/[&<>"']/g, (ch) => entities[ch]);
+    }
+
+    function formatInline(text) {
+      let out = escapeHtml(text);
+      out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
+      out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+      out = out.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+      return out;
+    }
+
+    function renderMarkdown(md) {
+      const lines = String(md || "").replace(/\r\n/g, "\n").split("\n");
+      const html = [];
+      let i = 0;
+
+      while (i < lines.length) {
+        const line = lines[i].trim();
+
+        if (!line) {
+          i++;
+          continue;
+        }
+
+        if (/^---+$/.test(line)) {
+          html.push("<hr />");
+          i++;
+          continue;
+        }
+
+        if (line.startsWith("### ")) {
+          html.push(`<h3>${formatInline(line.slice(4))}</h3>`);
+          i++;
+          continue;
+        }
+
+        if (line.startsWith("> ")) {
+          const quoteLines = [];
+          while (i < lines.length && lines[i].trim().startsWith("> ")) {
+            quoteLines.push(formatInline(lines[i].trim().slice(2)));
+            i++;
+          }
+          html.push(`<blockquote>${quoteLines.join("<br />")}</blockquote>`);
+          continue;
+        }
+
+        // Tabelas Markdown
+        if (line.startsWith("|") && i + 1 < lines.length && /^\|[\s:-]+\|/.test(lines[i + 1].trim())) {
+          const headers = line.split("|").slice(1, -1).map(c => `<th>${formatInline(c.trim())}</th>`).join("");
+          i += 2;
+          const rows = [];
+          while (i < lines.length && lines[i].trim().startsWith("|")) {
+            const cells = lines[i].trim().split("|").slice(1, -1).map(c => `<td>${formatInline(c.trim())}</td>`).join("");
+            rows.push(`<tr>${cells}</tr>`);
+            i++;
+          }
+          html.push(`<div class="table-wrap"><table><thead><tr>${headers}</tr></thead><tbody>${rows.join("")}</tbody></table></div>`);
+          continue;
+        }
+
+        // Lista não ordenada
+        if (/^[-*]\s+/.test(line)) {
+          const items = [];
+          while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
+            items.push(`<li>${formatInline(lines[i].replace(/^\s*[-*]\s+/, ""))}</li>`);
+            i++;
+          }
+          html.push(`<ul>${items.join("")}</ul>`);
+          continue;
+        }
+
+        // Lista numerada
+        if (/^\d+\.\s+/.test(line)) {
+          const items = [];
+          while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
+            items.push(`<li>${formatInline(lines[i].replace(/^\s*\d+\.\s+/, ""))}</li>`);
+            i++;
+          }
+          html.push(`<ol>${items.join("")}</ol>`);
+          continue;
+        }
+
+        // Parágrafo comum
+        const para = [];
+        while (
+          i < lines.length &&
+          lines[i].trim() &&
+          !/^(---|### |> |\||\s*[-*]\s+|\s*\d+\.\s+)/.test(lines[i].trim())
+        ) {
+          para.push(formatInline(lines[i].trim()));
+          i++;
+        }
+        html.push(`<p>${para.join("<br />")}</p>`);
+      }
+
+      return html.join("\n");
+    }
+
+    function renderSidebar() {
+      const list = document.getElementById("scene-list");
+      list.innerHTML = replayData.steps
+        .map((step, idx) => `
+          <button class="scene-btn ${idx === currentIndex ? "active" : ""}" data-index="${idx}">
+            <span class="scene-title">${escapeHtml(step.title)}</span>
+            <span class="scene-tag">${escapeHtml(step.badge)}</span>
+          </button>
+        `)
+        .join("");
+
+      list.querySelectorAll(".scene-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          currentIndex = Number(btn.dataset.index);
+          renderAll();
+        });
+      });
+
+      const meta = replayData.metadata;
+      document.getElementById("meta-box").innerHTML = `
+        <div><strong>Sessão:</strong> <code>${escapeHtml(meta.session_manager_id)}</code></div>
+        <div><strong>Modelo:</strong> <code>${escapeHtml(meta.llm_model)}</code></div>
+        <div><strong>Gravado em:</strong> <code>${escapeHtml(meta.recorded_at_utc)}</code></div>
+        <div><strong>Tools:</strong> <code>${escapeHtml(meta.mcp_primitives.tools.join(", "))}</code></div>
+      `;
+    }
+
+    function renderStage() {
+      const step = replayData.steps[currentIndex];
+      const meta = replayData.metadata;
+      const stage = document.getElementById("stage");
+
+      const toolPillsHtml = (step.mcp_tool_calls || [])
+        .map((call) => {
+          const isDenied = call.result && call.result.error === "ACCESS_DENIED_PORTFOLIO";
+          const args = JSON.stringify(call.arguments || {});
+          return `<span class="tool-pill ${isDenied ? "denied" : ""}">→ ${escapeHtml(call.tool)}(${escapeHtml(args)})${isDenied ? " [BLOQUEADO]" : ""}</span>`;
+        })
+        .join("");
+
+      const promptBlockHtml = step.mcp_prompt_used
+        ? `
+          <div class="xray-block">
+            <div class="xray-title">MCP Prompt disparado: ${escapeHtml(step.mcp_prompt_used.name)}</div>
+            <pre>${escapeHtml(JSON.stringify(step.mcp_prompt_used, null, 2))}</pre>
+          </div>
+        `
+        : "";
+
+      const toolBlocksHtml = (step.mcp_tool_calls || [])
+        .map((call, idx) => `
+          <div class="xray-block">
+            <div class="xray-title">Chamada #${idx + 1}: ${escapeHtml(call.tool)}(${escapeHtml(JSON.stringify(call.arguments || {}))})</div>
+            <pre>${escapeHtml(JSON.stringify(call.result, null, 2))}</pre>
+          </div>
+        `)
+        .join("");
+
+      stage.innerHTML = `
+        <div class="stage-header">
+          <div>
+            <h2>${escapeHtml(step.title)}</h2>
+          </div>
+          <div class="nav-controls">
+            <button class="btn" id="prev-btn" ${currentIndex === 0 ? "disabled" : ""}>← Anterior</button>
+            <button class="btn primary" id="next-btn" ${currentIndex === replayData.steps.length - 1 ? "disabled" : ""}>Próxima cena →</button>
+          </div>
+        </div>
+
+        <div class="chat-bubble bubble-user">
+          <div class="bubble-label">Gerente de Contas (${escapeHtml(meta.session_manager_id)})</div>
+          <div>${escapeHtml(step.user_message)}</div>
+        </div>
+
+        <div class="tool-pills">
+          ${step.mcp_prompt_used ? `<span class="tool-pill">★ MCP Prompt: ${escapeHtml(step.mcp_prompt_used.name)}</span>` : ""}
+          ${toolPillsHtml}
+        </div>
+
+        <div class="chat-bubble bubble-assistant">
+          <div class="bubble-label">YouShop Radar (${escapeHtml(meta.llm_model)} + MCP)</div>
+          <div class="md-content">${renderMarkdown(step.assistant_response)}</div>
+        </div>
+
+        <div class="xray-wrapper">
+          <button class="xray-toggle" id="xray-toggle" type="button">
+            <span>🔍 Raio-X MCP — Inspecionar payloads JSON brutos (auditoria LGPD & segurança)</span>
+            <span id="xray-arrow">Abrir ▾</span>
+          </button>
+          <div class="xray-body" id="xray-body">
+            ${promptBlockHtml}
+            ${toolBlocksHtml || "<p>Nenhuma tool chamada nesta cena.</p>"}
+          </div>
+        </div>
+      `;
+
+      document.getElementById("prev-btn").addEventListener("click", () => {
+        if (currentIndex > 0) {
+          currentIndex--;
+          renderAll();
+        }
+      });
+
+      document.getElementById("next-btn").addEventListener("click", () => {
+        if (currentIndex < replayData.steps.length - 1) {
+          currentIndex++;
+          renderAll();
+        }
+      });
+
+      const xrayToggle = document.getElementById("xray-toggle");
+      const xrayBody = document.getElementById("xray-body");
+      const xrayArrow = document.getElementById("xray-arrow");
+
+      // Abre automaticamente o Raio-X na cena de recusa de segurança para destaque imediato
+      if (step.id === "recusa_carteira") {
+        xrayBody.classList.add("open");
+        xrayArrow.textContent = "Fechar ▴";
+      }
+
+      xrayToggle.addEventListener("click", () => {
+        const isOpen = xrayBody.classList.toggle("open");
+        xrayArrow.textContent = isOpen ? "Fechar ▴" : "Abrir ▾";
+      });
+    }
+
+    function renderAll() {
+      renderSidebar();
+      renderStage();
+    }
+
+    async function init() {
+      try {
+        const res = await fetch("./replay_data.json");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        replayData = await res.json();
+        document.getElementById("disclaimer-bar").textContent =
+          `⚠️ ${replayData.metadata.disclaimer} Nenhuma chave de API fica exposta nesta página.`;
+        renderAll();
+      } catch (err) {
+        document.getElementById("stage").innerHTML = `
+          <div class="error-box">
+            <strong>Não foi possível carregar <code>replay_data.json</code>.</strong><br />
+            Se você abriu este arquivo direto pelo disco (<code>file://</code>), rode um servidor local com:<br />
+            <code>uv run python -m http.server 8000 --directory docs</code> e acesse <code>http://localhost:8000</code>.
+          </div>
+        `;
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
