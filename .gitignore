@@ -3,7 +3,7 @@ __pycache__/
 .venv/
 .pytest_cache/
 .ruff_cache/
-data/
+/data/
 *.db
 *.sqlite3
 .env
