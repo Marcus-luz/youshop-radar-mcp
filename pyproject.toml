@@ -1,4 +1,4 @@
-﻿[project]
+[project]
 name = "youshop-radar"
 version = "0.1.0"
 description = "Servidor MCP somente leitura para deteccao preventiva de risco de produtores na YouShop."

@@ -1,0 +1,1 @@
+# YouShop Radar MCP
