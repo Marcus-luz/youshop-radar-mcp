@@ -7,7 +7,7 @@ requires-python = ">=3.11"
 dependencies = [
     "faker>=30.0.0",
     "groq>=0.13.0",
-    "mcp[cli]>=1.2.0",
+    "mcp[cli]>=2.0.0,<3.0.0",
     "python-dotenv>=1.0.1",
 ]
 
