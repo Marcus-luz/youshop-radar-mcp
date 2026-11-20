@@ -1,7 +1,7 @@
 [project]
 name = "youshop-radar"
 version = "0.1.0"
-description = "Servidor MCP somente leitura para deteccao preventiva de risco de produtores na YouShop."
+description = "Servidor MCP somente leitura para deteccao preventiva de risco de produtores."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -9,6 +9,7 @@ dependencies = [
     "groq>=0.13.0",
     "mcp[cli]>=2.0.0,<3.0.0",
     "python-dotenv>=1.0.1",
+    "rich>=13.0.0",
 ]
 
 [dependency-groups]

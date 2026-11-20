@@ -1,40 +1,56 @@
-"""Playbook de retenção (MCP Resource) e template de abordagem (MCP Prompt)."""
+"""Guia de exemplo de retenção (MCP Resource) e template de abordagem (MCP Prompt)."""
 
 from __future__ import annotations
 
+from youshop_radar.config import ALLOWED_OUTREACH_CHANNELS
+
 RETENTION_PLAYBOOK_URI = "youshop://playbooks/retention-guide"
 
-RETENTION_PLAYBOOK_TEXT = """# Guia de Boas Práticas de Retenção — Comercial YouShop
+RETENTION_PLAYBOOK_TEXT = """# Guia de Exemplo de Retenção Proativa — Comercial (Protótipo)
 
 ## Princípios de Abordagem Proativa
-1. **Apoio antes de cobrança:** O Radar existe para ajudar o produtor a vender melhor e proteger
-   o lançamento e a comissão dos seus creators — nunca para pressionar ou culpar o cliente.
-2. **Transparência com humildade:** Cite apenas os sinais medidos (ex.: taxa de falha de webhook,
-   variação de vendas e tickets abertos). Se houver erro técnico sem queda de vendas (falso alarme
-   técnico), trate como aviso preventivo de baixa urgência e admita explicitamente o que os dados
-   não comprovam.
-3. **Ação concreta na primeira mensagem:** Ofereça um passo prático imediato (ex.: revisar segredo
-   do webhook ou acionar suporte técnico da YouShop em chamada rápida de 10 minutos).
-4. **Tom de voz:** Direto, consultivo, empático e livre de jargão técnico excessivo.
-5. **Pessoa no controle (Human-in-the-Loop):** Todo texto gerado é um rascunho para revisão e
+1. **Apoio antes de cobrança:** O contato existe para ajudar o produtor a vender melhor e proteger
+   o lançamento e a comissão dos seus creators — nunca para pressionar ou expor alertas internos.
+2. **Nunca expor classificação interna ao cliente:** Em rascunhos enviados ao produtor, JAMAIS cite
+   score numérico, "risco comercial alto" ou a palavra "churn". Fale como parceiro oferecendo ajuda
+   técnica concreta.
+3. **Transparência com humildade:** Cite apenas os sinais medidos retornados pelas ferramentas.
+   Use sempre linguagem de hipótese ("pode indicar") ao apontar causas técnicas prováveis. Nunca
+   invente exemplos de tickets que não estejam nos dados.
+4. **Distinção de gravidade técnica:**
+   - `falso_alarme_tecnico` (erro em endpoint auxiliar com vendas estáveis): baixa urgência; deixe
+     explícito que os dados não comprovam risco comercial.
+   - `alerta_tecnico_precoce` (erro crítico com vendas ainda estáveis): atenção preventiva técnica
+     para evitar queda de vendas.
+5. **Ação concreta na primeira mensagem:** Ofereça um passo prático imediato (ex.: revisar a
+   configuração do webhook junto com o suporte técnico em uma chamada rápida de 10 minutos).
+6. **Pessoa no controle (Human-in-the-Loop):** Todo texto gerado é um rascunho para revisão e
    edição do gerente de contas. O agente nunca envia mensagens diretamente.
 """
 
 
 def build_outreach_prompt(producer_ref: str, channel: str = "whatsapp") -> str:
     """Monta a instrução estruturada do MCP Prompt para redigir rascunho de contato."""
-    safe_channel = channel.strip().lower() or "whatsapp"
+    safe_channel = channel.strip().lower()
+    if safe_channel not in ALLOWED_OUTREACH_CHANNELS:
+        allowed_str = ", ".join(sorted(ALLOWED_OUTREACH_CHANNELS))
+        raise ValueError(
+            f"Canal inválido: '{channel}'. Canais permitidos: {allowed_str}."
+        )
+
     return (
         f"Você é o assistente YouShop Radar apoiando um gerente de contas do Comercial.\n"
-        f"1. Consulte os sinais atuais do produtor '{producer_ref}' usando `get_producer_signals` "
-        f"e, se necessário, o histórico em `get_signal_history`.\n"
-        f"2. Siga rigorosamente o guia em `{RETENTION_PLAYBOOK_URI}`.\n"
-        f"3. Se o acesso for negado (carteira de outro gerente), informe a recusa de segurança "
-        f"e NÃO invente dados.\n"
+        f"1. Consulte os sinais atuais do produtor '{producer_ref}' usando `get_producer_signals`.\n"
+        f"2. Siga rigorosamente o guia de exemplo em `{RETENTION_PLAYBOOK_URI}`.\n"
+        f"3. Se o servidor retornar `PRODUCER_UNAVAILABLE`, informe apenas que o produtor não está "
+        f"disponível na carteira autenticada, indique tratar com a gestão e NÃO invente dados nem "
+        f"processos de contorno.\n"
         f"4. Se o nível for `falso_alarme_tecnico` ou `baixo_sazonalidade`, explique claramente "
         f"por que não há evidência de risco comercial imediato antes de sugerir qualquer contato.\n"
-        f"5. Redija um rascunho curto para o canal '{safe_channel}' (máximo 5 linhas), "
-        f"citando os sinais medidos de forma simples e oferecendo apoio técnico.\n"
+        f"5. Redija um rascunho curto, natural e consultivo para o canal '{safe_channel}' "
+        f"(máximo 5 linhas), citando os sinais observados em linguagem humana e oferecendo apoio "
+        f"técnico prático. JAMAIS mencione score, 'risco comercial alto' ou 'churn' no texto "
+        f"destinado ao produtor, e use 'pode indicar' para causas prováveis.\n"
         f"6. Comece obrigatoriamente o rascunho com a linha: "
         f"'[RASCUNHO — REVISÃO E ENVIO HUMANO OBRIGATÓRIOS]'."
     )

@@ -1,7 +1,7 @@
 {
   "metadata": {
     "project": "YouShop Radar MCP",
-    "recorded_at_utc": "2026-11-19 16:02 UTC",
+    "recorded_at_utc": "2026-11-20 00:31 UTC",
     "session_manager_id": "mgr_ana",
     "llm_model": "openai/gpt-oss-120b",
     "mcp_primitives": {
@@ -17,7 +17,7 @@
         "draft_retention_outreach"
       ]
     },
-    "disclaimer": "Gravação de sessão real do servidor MCP com dados simulados (seed=42). Nenhuma ação real é executada."
+    "disclaimer": "Gravação de sessão real do servidor MCP com dados simulados (seed=42, data de referência 19/11/2026). Nenhuma ação real é executada."
   },
   "steps": [
     {
@@ -30,13 +30,13 @@
         {
           "tool": "list_at_risk_producers",
           "arguments": {
-            "min_score": 0
+            "min_score": 50
           },
           "result": {
             "session_manager_id": "mgr_ana",
-            "min_score_filter": 0,
+            "min_score_filter": 50,
             "total_portfolio_producers": 6,
-            "flagged_count": 6,
+            "flagged_count": 2,
             "producers": [
               {
                 "producer_id": "prod_aurora",
@@ -55,49 +55,26 @@
                 "risk_score": 83,
                 "risk_level": "alto",
                 "main_signal": "webhooks falhando (22.9% - timeout_checkout_pix); vendas -32.9% vs. média; 3 ticket(s) crítico(s) aberto(s)"
-              },
-              {
-                "producer_id": "prod_codemaster",
-                "producer_name": "CodeMaster Cursos",
-                "category": "cursos",
-                "active_creators_count": 9,
-                "risk_score": 38,
-                "risk_level": "falso_alarme_tecnico",
-                "main_signal": "webhooks falhando (28.6% - endpoint_analytics_offline)"
-              },
-              {
-                "producer_id": "prod_gestaopro",
-                "producer_name": "GestãoPro Software",
-                "category": "software",
-                "active_creators_count": 4,
-                "risk_score": 20,
-                "risk_level": "baixo_sazonalidade",
-                "main_signal": "vendas -19.8% vs. média"
-              },
-              {
-                "producer_id": "prod_fitpulse",
-                "producer_name": "FitPulse Suplementos",
-                "category": "suplementos",
-                "active_creators_count": 5,
-                "risk_score": 1,
-                "risk_level": "baixo",
-                "main_signal": "operação estável nos últimos 7 dias"
-              },
-              {
-                "producer_id": "prod_essencia",
-                "producer_name": "Essência Natural",
-                "category": "cosméticos",
-                "active_creators_count": 6,
-                "risk_score": 0,
-                "risk_level": "baixo",
-                "main_signal": "operação estável nos últimos 7 dias"
               }
             ],
-            "data_notice": "Dados simulados (seed=42). Retorno filtrado por Allowlist LGPD."
+            "data_notice": "Dados simulados (seed=42). Retorno minimizado via Allowlist."
           }
         }
       ],
-      "assistant_response": "**Prioridade 1 – Aurora Cosméticos**  \n- **Score de risco:** 93 (alto)  \n- **Sinais medidos:**  \n  - Webhooks falhando = 32,1 % (erro “assinatura_invalida”)  \n  - Vendas = ‑40,1 % em relação à média dos últimos 21 dias  \n  - 2 tickets críticos abertos (ex.: “falha de pagamento” e “integração API”)  \n  - 12 creators ativos  \n- **Por que atenção agora:** A combinação de alta taxa de falha de webhook, queda acentuada nas vendas e tickets críticos indica risco imediato de churn e perda de comissão.  \n- **Passo prático imediato:** Verificar o segredo (secret) configurado no webhook da Aurora; se estiver incorreto, atualizar e testar. Caso a falha persista, abrir chamada rápida de 10 min com o suporte técnico da YouShop para corrigir a assinatura inválida e acompanhar a resolução dos tickets.\n\n---\n\n**Prioridade 2 – NutriMax Suplementos**  \n- **Score de risco:** 83 (alto)  \n- **Sinais medidos:**  \n  - Webhooks falhando = 22,9 % (erro “timeout_checkout_pix”)  \n  - Vendas = ‑32,9 % vs. média 21 dias  \n  - 3 tickets críticos abertos (ex.: “checkout travado” e “reembolso automático”)  \n  - 7 creators ativos  \n- **Por que atenção agora:** Falhas de webhook que geram timeout no checkout PIX estão impactando diretamente as vendas, além de múltiplos tickets críticos que precisam ser resolvidos rapidamente.  \n- **Passo prático imediato:** Conferir a latência e disponibilidade do endpoint de checkout usado pelo webhook; se houver instabilidade, solicitar ao time de infraestrutura um ajuste ou fallback. Enquanto isso, responder aos tickets críticos com prioridade alta.\n\n---\n\n**Prioridade 3 – CodeMaster Cursos** *(falso alarme técnico)*  \n- **Score de risco:** 38 (falso_alarme_tecnico)  \n- **Sinais medidos:**  \n  - Webhooks falhando = 28,6 % (erro “endpoint_analytics_offline”)  \n  - **Não há queda de vendas** (as vendas estão estáveis)  \n  - 9 creators ativos  \n- **O que os dados **NÃO** comprovam:** Não há redução nas vendas nem tickets críticos; o problema está restrito ao endpoint de analytics.  \n- **Recomendação:** Tratar como alerta de baixa urgência. Agendar uma revisão do endpoint de analytics (por exemplo, validar se o serviço está temporariamente offline) e monitorar nos próximos dias. Não é necessário acionar ações de retenção ou churn imediato.\n\n---\n\n**Prioridade 4 – GestãoPro Software**  \n- **Score de risco:** 20 (baixo_sazonalidade)  \n- **Sinais medidos:**  \n  - Vendas = ‑19,8 % vs. média 21 dias (possível efeito sazonal)  \n  - 4 creators ativos  \n- **Por que atenção moderada:** A queda de quase 20 % pode ser sazonal, mas vale observar se a tendência persiste.  \n- **Passo prático imediato:** Conversar rapidamente com o produtor para confirmar se há campanhas ou eventos sazonais previstos; caso contrário, analisar oportunidades de promoção.\n\n---\n\n**Prioridade 5 – FitPulse Suplementos**  \n- **Score de risco:** 1 (baixo)  \n- **Sinais medidos:** Operação estável nos últimos 7 dias, 5 creators ativos.  \n- **Ação recomendada:** Monitoramento de rotina; nenhuma intervenção urgente.\n\n---\n\n**Prioridade 6 – Essência Natural**  \n- **Score de risco:** 0 (baixo)  \n- **Sinais medidos:** Operação estável nos últimos 7 dias, 6 creators ativos.  \n- **Ação recomendada:** Monitoramento de rotina; nenhuma intervenção urgente.\n\n---\n\n### Resumo rápido para o gerente\n1. **Aurora** – Corrigir assinatura do webhook e fechar tickets críticos.  \n2. **NutriMax** – Checar timeout do checkout PIX e priorizar tickets críticos.  \n3. **CodeMaster** – Verificar endpoint de analytics; sem risco de churn imediato.  \n4. **GestãoPro** – Confirmar sazonalidade e avaliar necessidade de ação promocional.  \n5. **FitPulse** – Monitorar.  \n6. **Essência** – Monitorar.\n\n> **Obs.:** Este texto é um rascunho para revisão antes de ser enviado ao cliente. Use-o como base para a conversa de apoio ao produtor."
+      "assistant_response": "**Produtores que precisam de atenção hoje (ordem de prioridade):**\n\n1. **Aurora Cosméticos** – *nível alto*  \n   - **Por que atenção:** Os webhooks estão falhando em **32,1 %** das tentativas, principalmente por “assinatura_invalida”.  \n   - As vendas caíram **‑40,1 %** em relação à média dos últimos 21 dias.  \n   - Existem **2 tickets críticos** abertos.  \n   - *Hipótese:* Essas falhas podem estar impedindo a finalização de pedidos e, consequentemente, a queda nas vendas.\n\n2. **NutriMax Suplementos** – *nível alto*  \n   - **Por que atenção:** Os webhooks apresentam falhas em **22,9 %** das chamadas, com erro “timeout_checkout_pix”.  \n   - As vendas estão **‑32,9 %** abaixo da média dos últimos 21 dias.  \n   - Há **3 tickets críticos** abertos.  \n   - *Hipótese:* O timeout nos pagamentos pode estar bloqueando a conclusão de compras, refletindo na redução de vendas.\n\nEsses dois produtores são os que apresentam os sinais mais críticos na sua carteira e, portanto, devem ser priorizados para um contato de apoio técnico.",
+      "grounding_check": {
+        "verified": true,
+        "checked_count": 6,
+        "checked_numbers": [
+          "32,1",
+          "-40,1",
+          "22,9",
+          "-32,9",
+          "2",
+          "3"
+        ],
+        "ungrounded_numbers": []
+      }
     },
     {
       "id": "diagnostico_aurora",
@@ -124,6 +101,7 @@
               "webhook_total_events": 140,
               "top_webhook_error": "assinatura_invalida",
               "sales_variation_vs_baseline_pct": -40.1,
+              "baseline_status": "ok",
               "recent_orders_count": 84,
               "open_tickets_total": 2,
               "open_critical_tickets": 2,
@@ -132,7 +110,7 @@
               },
               "known_seasonal_pattern": false
             },
-            "calibration_note": "Score calculado por regra determinística (40% webhook, 40% vendas, 20% tickets). Pesos e limiares são hipóteses iniciais a calibrar em piloto."
+            "calibration_note": "Score calculado por regra determinística (40% webhook, 40% vendas, 20% tickets). Pesos, limiares e flag de sazonalidade são hipóteses simuladas para calibração em piloto."
           }
         },
         {
@@ -178,20 +156,39 @@
           }
         }
       ],
-      "assistant_response": "**Sinais da Aurora Cosméticos (últimos 7 dias)**  \n\n| Métrica | Valor |\n|---|---|\n| **Score de risco** | 93 (nível **alto**) |\n| **Criadores ativos** | 12 |\n| **Taxa de falha de webhook** | **32,1 %** (45 falhas em 140 eventos) |\n| **Erro de webhook predominante** | `assinatura_invalida` |\n| **Variação de vendas vs. média 21 dias** | **‑40,1 %** |\n| **Pedidos recentes** | 84 |\n| **Tickets abertos** | 2 (todos críticos, categoria *erro_integracao*) |\n| **Padrão sazonal** | Não identificado |\n\n**Evolução semanal (últimas 4 semanas)**  \n\n| Semana | Pedidos | Receita (R$) | Taxa de falha webhook | Tickets abertos |\n|---|---|---|---|---|\n| 23 – 29 out 2026 | 140 | 20 941,66 | 0 % | 0 |\n| 30 out – 5 nov 2026 | 140 | 21 000,06 | 0 % | 0 |\n| 6 – 12 nov 2026 | 140 | 21 032,87 | 0 % | 0 |\n| **13 – 19 nov 2026** | **84** | **12 582,86** | **32,1 %** | **2** |\n\n**O que os dados mostram**  \n- Até a semana de 6 – 12 nov 2026 não havia falhas de webhook nem tickets, e as vendas estavam estáveis (~140 pedidos/semana).  \n- Na semana de **13 – 19 nov 2026** ocorreu um salto abrupto na taxa de falha de webhook (32,1 %) e surgiram 2 tickets críticos de integração.  \n- Essa falha coincidiu com uma queda de **‑40 %** nas vendas (de 140 para 84 pedidos) e na receita.\n\n**Ações imediatas recomendadas**  \n\n1. **Revisar a assinatura do webhook** – o erro `assinatura_invalida` indica que o segredo usado para validar os eventos mudou ou está incorreto.  \n2. **Atualizar o segredo no endpoint da Aurora** ou, se o segredo estiver correto, gerar um novo no painel da YouShop e repassar ao time de desenvolvimento da Aurora.  \n3. **Abrir chamada rápida (≈10 min) com o suporte de integração da YouShop** para validar a configuração e fechar os tickets críticos.  \n4. **Monitorar a taxa de falha nas próximas 48 h**; se permanecer abaixo de 5 % e as vendas voltarem ao patamar anterior, o risco será reduzido.\n\nEssas etapas tratam o problema técnico identificado e evitam que a queda de vendas se prolongue. Caso precise de apoio para agendar a chamada ou gerar um novo segredo, estou à disposição."
+      "assistant_response": "**Sinais atuais da Aurora Cosméticos (últimos 7 dias)**  \n\n- **Taxa de falha de webhook:** **32,1 %** (45 falhas em 140 eventos).  \n- **Erro mais frequente:** `assinatura_invalida` – pode indicar que a assinatura configurada no webhook está incorreta ou expirada.  \n- **Variação de vendas vs. baseline:** **‑40,1 %** – queda significativa nas vendas em relação ao histórico de 21 dias.  \n- **Pedidos recentes:** 84 pedidos.  \n- **Tickets abertos:** 2 tickets críticos, ambos na categoria **erro_integracao**.  \n- **Criadores ativos:** 12.  \n- **Nível de risco:** **alto** (conforme classificação interna do sistema).  \n\n---\n\n**Evolução semanal (últimas 4 semanas)**  \n\n| Semana | Pedidos | Receita (R$) | Taxa de falha webhook | Tickets abertos |\n|--------|---------|--------------|-----------------------|-----------------|\n| 23 – 29 out 2026 | 140 | 20 941,66 | **0,0 %** | 0 |\n| 30 out – 5 nov 2026 | 140 | 21 000,06 | **0,0 %** | 0 |\n| 6 – 12 nov 2026 | 140 | 21 032,87 | **0,0 %** | 0 |\n| 13 – 19 nov 2026 | **84** | **12 582,86** | **32,1 %** | **2** |\n\n**O que os dados indicam**  \n- Até a semana de 6 – 12 nov 2026, a taxa de falha de webhook era zero e não havia tickets abertos, com volume de pedidos estável (140).  \n- Na semana de 13 – 19 nov 2026, houve um aumento abrupto da taxa de falha para **32,1 %**, surgiram 2 tickets críticos de integração e o número de pedidos caiu para 84, refletindo a variação de vendas de **‑40,1 %**.  \n\n**Hipótese de causa técnica**  \nO erro `assinatura_invalida` pode indicar que a assinatura usada para validar os callbacks do webhook está desatualizada ou configurada incorretamente, o que costuma gerar falhas de entrega e, consequentemente, impactar a captura de pedidos.\n\n**Recomendação prática**  \nRevisar a configuração da assinatura do webhook (chave, algoritmo e validade) junto ao time de suporte técnico, preferencialmente em uma chamada rápida de 10 minutos, para confirmar se o problema está na validação e corrigir eventuais inconsistências.",
+      "grounding_check": {
+        "verified": true,
+        "checked_count": 12,
+        "checked_numbers": [
+          "32,1",
+          "-40,1",
+          "0,0",
+          "84",
+          "2",
+          "12",
+          "45",
+          "140",
+          "20 941,66",
+          "21 000,06",
+          "21 032,87",
+          "12 582,86"
+        ],
+        "ungrounded_numbers": []
+      }
     },
     {
       "id": "rascunho_contato",
       "title": "3. Rascunho de abordagem (HITL)",
       "badge": "MCP Prompt + Resource",
-      "user_message": "Gere um rascunho de mensagem no WhatsApp para a Aurora Cosméticos seguindo o playbook de retenção da YouShop (sem enviar).",
+      "user_message": "Gere um rascunho de mensagem no WhatsApp para a Aurora Cosméticos seguindo o guia de retenção (sem enviar).",
       "mcp_prompt_used": {
         "name": "draft_retention_outreach",
         "arguments": {
           "producer_ref": "Aurora Cosméticos",
           "channel": "whatsapp"
         },
-        "rendered_instruction": "Você é o assistente YouShop Radar apoiando um gerente de contas do Comercial.\n1. Consulte os sinais atuais do produtor 'Aurora Cosméticos' usando `get_producer_signals` e, se necessário, o histórico em `get_signal_history`.\n2. Siga rigorosamente o guia em `youshop://playbooks/retention-guide`.\n3. Se o acesso for negado (carteira de outro gerente), informe a recusa de segurança e NÃO invente dados.\n4. Se o nível for `falso_alarme_tecnico` ou `baixo_sazonalidade`, explique claramente por que não há evidência de risco comercial imediato antes de sugerir qualquer contato.\n5. Redija um rascunho curto para o canal 'whatsapp' (máximo 5 linhas), citando os sinais medidos de forma simples e oferecendo apoio técnico.\n6. Comece obrigatoriamente o rascunho com a linha: '[RASCUNHO — REVISÃO E ENVIO HUMANO OBRIGATÓRIOS]'."
+        "rendered_instruction": "Você é o assistente YouShop Radar apoiando um gerente de contas do Comercial.\n1. Consulte os sinais atuais do produtor 'Aurora Cosméticos' usando `get_producer_signals`.\n2. Siga rigorosamente o guia de exemplo em `youshop://playbooks/retention-guide`.\n3. Se o servidor retornar `PRODUCER_UNAVAILABLE`, informe apenas que o produtor não está disponível na carteira autenticada, indique tratar com a gestão e NÃO invente dados nem processos de contorno.\n4. Se o nível for `falso_alarme_tecnico` ou `baixo_sazonalidade`, explique claramente por que não há evidência de risco comercial imediato antes de sugerir qualquer contato.\n5. Redija um rascunho curto, natural e consultivo para o canal 'whatsapp' (máximo 5 linhas), citando os sinais observados em linguagem humana e oferecendo apoio técnico prático. JAMAIS mencione score, 'risco comercial alto' ou 'churn' no texto destinado ao produtor, e use 'pode indicar' para causas prováveis.\n6. Comece obrigatoriamente o rascunho com a linha: '[RASCUNHO — REVISÃO E ENVIO HUMANO OBRIGATÓRIOS]'."
       },
       "mcp_tool_calls": [
         {
@@ -212,6 +209,7 @@
               "webhook_total_events": 140,
               "top_webhook_error": "assinatura_invalida",
               "sales_variation_vs_baseline_pct": -40.1,
+              "baseline_status": "ok",
               "recent_orders_count": 84,
               "open_tickets_total": 2,
               "open_critical_tickets": 2,
@@ -220,11 +218,20 @@
               },
               "known_seasonal_pattern": false
             },
-            "calibration_note": "Score calculado por regra determinística (40% webhook, 40% vendas, 20% tickets). Pesos e limiares são hipóteses iniciais a calibrar em piloto."
+            "calibration_note": "Score calculado por regra determinística (40% webhook, 40% vendas, 20% tickets). Pesos, limiares e flag de sazonalidade são hipóteses simuladas para calibração em piloto."
           }
         }
       ],
-      "assistant_response": "[RASCUNHO — REVISÃO E ENVIO HUMANO OBRIGATÓRIOS]  \nOi, tudo bem? Detectamos para a Aurora Cosméticos: taxa de falha de webhook = 32,1 % (45 falhas/140 eventos), queda nas vendas = ‑40,1 % vs. média de 21 dias, 2 tickets críticos de erro de integração e 12 creators ativos.  \nEsses sinais apontam risco comercial alto. Podemos revisar agora o segredo do webhook e abrir uma chamada rápida de 10 min com o suporte técnico da YouShop para corrigir a integração.  \nFico à disposição para agendar ou ajudar no ajuste."
+      "assistant_response": "[RASCUNHO — REVISÃO E ENVIO HUMANO OBRIGATÓRIOS]  \nOlá, tudo bem? Notamos que a taxa de falhas nos webhooks está em 32,1 % nas últimas 7 dias, com o erro “assinatura_invalida”, o que pode indicar um problema de autenticação nas integrações.  \nTambém observamos uma queda nas vendas de -40,1 % em relação ao baseline, e dois tickets críticos de integração abertos, o que pode estar relacionado.  \nPodemos agendar uma rápida chamada de 10 min para revisar a configuração do webhook e resolver esses pontos?  \nFico à disposição para ajudar no que for preciso.",
+      "grounding_check": {
+        "verified": true,
+        "checked_count": 2,
+        "checked_numbers": [
+          "32,1",
+          "-40,1"
+        ],
+        "ungrounded_numbers": []
+      }
     },
     {
       "id": "recusa_carteira",
@@ -239,13 +246,19 @@
             "producer_ref": "BellaSuplementos"
           },
           "result": {
-            "error": "ACCESS_DENIED_PORTFOLIO",
-            "message": "ACCESS_DENIED_PORTFOLIO: Acesso negado. O produtor solicitado não pertence à carteira autenticada na sessão atual.",
+            "error": "PRODUCER_UNAVAILABLE",
+            "message": "Produtor não encontrado na carteira autenticada.",
             "producer_ref": "BellaSuplementos"
           }
         }
       ],
-      "assistant_response": "**Acesso negado** – O produtor **BellaSuplementos** não pertence à carteira autenticada na sua sessão, portanto o servidor retornou **ACCESS_DENIED_PORTFOLIO**.\n\nNão é possível visualizar os sinais desse produtor a partir da sua conta atual. Caso precise comparar com a carteira da BellaSuplementos, será necessário que o responsável por essa carteira autorize o acesso ou que você solicite os dados diretamente ao time da YouShop.\n\n**Próximos passos sugeridos**  \n1. **Solicitar ao cliente** (ou ao gestor da BellaSuplementos) que compartilhe os relatórios de webhook, variação de vendas e tickets, ou que ele mesmo nos adicione à carteira dele.  \n2. **Abrir um ticket interno** com o suporte da YouShop explicando a necessidade de comparação entre carteiras; eles podem criar um acesso temporário ou fornecer os dados consolidados.  \n3. Enquanto isso, podemos analisar os produtores que **estão dentro da sua carteira** – basta indicar o nome ou ID que deseja consultar que retornarei os sinais medidos (taxa de falha de webhook, variação de vendas, tickets abertos e número de creators ativos).  \n\nEstou à disposição para ajudar a obter as informações que você precisa dentro da sua carteira."
+      "assistant_response": "O produtor **BellaSuplementos** não está disponível na carteira autenticada. Eventuais dúvidas de escopo devem ser tratadas com a gestão comercial.",
+      "grounding_check": {
+        "verified": true,
+        "checked_count": 0,
+        "checked_numbers": [],
+        "ungrounded_numbers": []
+      }
     },
     {
       "id": "falso_alarme",
@@ -254,6 +267,39 @@
       "user_message": "Vi que a CodeMaster Cursos teve erros de webhook. Ela está em risco de churn? Devo ligar com urgência?",
       "mcp_prompt_used": null,
       "mcp_tool_calls": [
+        {
+          "tool": "list_at_risk_producers",
+          "arguments": {
+            "min_score": 50
+          },
+          "result": {
+            "session_manager_id": "mgr_ana",
+            "min_score_filter": 50,
+            "total_portfolio_producers": 6,
+            "flagged_count": 2,
+            "producers": [
+              {
+                "producer_id": "prod_aurora",
+                "producer_name": "Aurora Cosméticos",
+                "category": "cosméticos",
+                "active_creators_count": 12,
+                "risk_score": 93,
+                "risk_level": "alto",
+                "main_signal": "webhooks falhando (32.1% - assinatura_invalida); vendas -40.1% vs. média; 2 ticket(s) crítico(s) aberto(s)"
+              },
+              {
+                "producer_id": "prod_nutrimax",
+                "producer_name": "NutriMax Suplementos",
+                "category": "suplementos",
+                "active_creators_count": 7,
+                "risk_score": 83,
+                "risk_level": "alto",
+                "main_signal": "webhooks falhando (22.9% - timeout_checkout_pix); vendas -32.9% vs. média; 3 ticket(s) crítico(s) aberto(s)"
+              }
+            ],
+            "data_notice": "Dados simulados (seed=42). Retorno minimizado via Allowlist."
+          }
+        },
         {
           "tool": "get_producer_signals",
           "arguments": {
@@ -272,17 +318,27 @@
               "webhook_total_events": 105,
               "top_webhook_error": "endpoint_analytics_offline",
               "sales_variation_vs_baseline_pct": 7.1,
+              "baseline_status": "ok",
               "recent_orders_count": 105,
               "open_tickets_total": 0,
               "open_critical_tickets": 0,
               "tickets_by_category": {},
               "known_seasonal_pattern": false
             },
-            "calibration_note": "Score calculado por regra determinística (40% webhook, 40% vendas, 20% tickets). Pesos e limiares são hipóteses iniciais a calibrar em piloto."
+            "calibration_note": "Score calculado por regra determinística (40% webhook, 40% vendas, 20% tickets). Pesos, limiares e flag de sazonalidade são hipóteses simuladas para calibração em piloto."
           }
         }
       ],
-      "assistant_response": "**Situação da CodeMaster Cursos**\n\n- **Score de risco:** 38 (abaixo do limiar de alerta)\n- **Nível de risco:** **falso_alarme_tecnico**\n- **Taxa de falha de webhook (últimos 7 dias):** 28,6 % (30 falhas em 105 eventos) – erro identificado como *endpoint_analytics_offline*  \n- **Variação de vendas vs. média de 21 dias:** **+7,1 %** (vendas em alta)  \n- **Tickets abertos:** 0 (nenhum crítico)  \n- **Creators ativos:** 9  \n\n### O que os dados **não** comprovam\n- Não há queda de vendas nem aumento de tickets que indique risco real de churn.  \n- O nível “falso_alarme_tecnico” significa que o alerta está relacionado apenas a um problema técnico (webhook), sem impacto mensurável nas receitas.\n\n### Recomendações práticas\n1. **Verificar o endpoint do webhook** – confirme se o serviço de analytics está online ou ajuste a URL/credenciais.  \n2. **Abrir um ticket de suporte técnico** (pode ser resolvido em uma chamada rápida de ~10 min) caso o endpoint continue offline.  \n3. **Monitorar** a taxa de falha nos próximos dias; se permanecer alta ou houver queda nas vendas, reavaliar o risco.\n\n### Conclusão\nNão é necessário ligar com urgência para tratar de churn. Priorize a correção do webhook; a situação de vendas está saudável e não há indícios de churn iminente."
+      "assistant_response": "A CodeMaster Cursos apresenta falhas de webhook em 28,6 % dos eventos nas últimas 7 dias (erro `endpoint_analytics_offline`). Contudo, a variação de vendas está **positiva (+7,1 %)**, não há queda de faturamento, e não há tickets críticos abertos.\n\nEsses indicadores apontam para um **`falso_alarme_tecnico`**: os dados não comprovam risco de churn nem necessidade de contato imediato. Recomendo monitorar o webhook nas próximas semanas e, se a taxa de falha permanecer alta ou surgirem quedas de vendas, agendar uma revisão técnica, mas não é necessário ligar com urgência neste momento.",
+      "grounding_check": {
+        "verified": true,
+        "checked_count": 2,
+        "checked_numbers": [
+          "28,6",
+          "+7,1"
+        ],
+        "ungrounded_numbers": []
+      }
     }
   ]
 }

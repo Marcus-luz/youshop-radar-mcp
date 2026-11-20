@@ -294,6 +294,26 @@
       color: var(--red);
     }
 
+    .grounding-bar {
+      margin-top: 14px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 0.84rem;
+      font-weight: 600;
+    }
+
+    .grounding-bar.ok {
+      background: var(--green-soft);
+      border: 1px solid rgba(52, 211, 153, 0.35);
+      color: var(--green);
+    }
+
+    .grounding-bar.warn {
+      background: var(--amber-soft);
+      border: 1px solid rgba(251, 191, 36, 0.4);
+      color: var(--amber);
+    }
+
     .md-content p { margin: 0 0 12px; }
     .md-content p:last-child { margin-bottom: 0; }
     .md-content h3 { margin: 16px 0 8px; font-size: 1rem; color: var(--accent); }
@@ -331,7 +351,7 @@
     th { background: var(--surface-alt); color: var(--accent); }
 
     .xray-wrapper {
-      margin-top: 20px;
+      margin-top: 16px;
       border: 1px solid var(--border);
       border-radius: 12px;
       overflow: hidden;
@@ -429,9 +449,10 @@
         <div>
           <h1>YouShop Radar MCP</h1>
           <p class="subtitle">
-            Protótipo funcional de agente analítico somente leitura via <strong>Model Context Protocol (MCP v2)</strong>
-            para detecção preventiva de risco de churn em produtores — cruzando webhooks, vendas e tickets com
-            isolamento de carteira e Allowlist LGPD.
+            Protótipo funcional de agente analítico somente leitura via
+            <strong>Model Context Protocol (SDK Python v2)</strong> para detecção preventiva de risco
+            de churn em produtores — cruzando webhooks, vendas e tickets com isolamento de carteira
+            <em>fail-closed</em> e minimização de dados via Allowlist.
           </p>
         </div>
         <a class="repo-link" href="https://github.com/Marcus-luz/youshop-radar-mcp" target="_blank" rel="noopener">
@@ -439,10 +460,10 @@
         </a>
       </div>
       <div class="badges">
-        <span class="badge green">✓ MCP SDK v2 (3 Tools · 1 Resource · 1 Prompt)</span>
+        <span class="badge green">✓ MCP SDK Python v2 (3 Tools · 1 Resource · 1 Prompt)</span>
         <span class="badge blue">Score Determinístico (0–100)</span>
         <span class="badge blue">Somente Leitura · Human-in-the-Loop</span>
-        <span class="badge amber">Isolamento de Carteira + Allowlist LGPD</span>
+        <span class="badge amber">Sessão Fail-Closed + Anti-Enumeração + Allowlist</span>
       </div>
     </header>
 
@@ -464,24 +485,27 @@
 
     <section class="arch-grid" aria-label="Arquitetura em 3 camadas">
       <div class="arch-card">
-        <h3>1. Camada Data (SQLite + Seed)</h3>
+        <h3>1. Camada Data (SQLite Readonly)</h3>
         <p>
-          Banco local determinístico (<code>seed=42</code>) com 8 produtores em 2 carteiras, 28 dias de pedidos,
-          webhooks e tickets. Repositório estritamente somente leitura.
+          Banco simulado determinístico (<code>seed=42</code>, data fixa <code>19/11/2026</code>) com
+          8 produtores em 2 carteiras. Consultas com janela semiaberta (<code>>=</code> e
+          <code><</code>) e tickets abertos de qualquer idade.
         </p>
       </div>
       <div class="arch-card">
         <h3>2. Camada Domain (Score + Segurança)</h3>
         <p>
-          Zero matemática na IA: score determinístico com travas de <code>falso_alarme_tecnico</code> e
-          <code>baixo_sazonalidade</code>, isolamento por sessão e Allowlist explícita sem PII ou segredos.
+          Score determinístico com distinção entre <code>alerta_tecnico_precoce</code> (erro crítico)
+          e <code>falso_alarme_tecnico</code> (endpoint auxiliar), anti-enumeração e sanitização de
+          valores contra <em>prompt injection</em>.
         </p>
       </div>
       <div class="arch-card">
         <h3>3. Camada MCP Server + Cliente</h3>
         <p>
-          Adaptador fino em <code>MCPServer</code> (<code>stdio</code>) desacoplado do cliente Groq. O modelo
-          nunca escolhe <code>manager_id</code> e nunca envia mensagens reais.
+          Adaptador fino em <code>MCPServer</code> (<code>stdio</code>) com inicialização sob demanda
+          e sessão <em>fail-closed</em>. Cliente desacoplado com verificador automático de números
+          contra os payloads MCP.
         </p>
       </div>
     </section>
@@ -491,7 +515,7 @@
     let replayData = null;
     let currentIndex = 0;
 
-   function escapeHtml(text) {
+    function escapeHtml(text) {
       const entities = {
         "&": "\x26amp;",
         "<": "\x26lt;",
@@ -545,7 +569,6 @@
           continue;
         }
 
-        // Tabelas Markdown
         if (line.startsWith("|") && i + 1 < lines.length && /^\|[\s:-]+\|/.test(lines[i + 1].trim())) {
           const headers = line.split("|").slice(1, -1).map(c => `<th>${formatInline(c.trim())}</th>`).join("");
           i += 2;
@@ -559,7 +582,6 @@
           continue;
         }
 
-        // Lista não ordenada
         if (/^[-*]\s+/.test(line)) {
           const items = [];
           while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
@@ -570,7 +592,6 @@
           continue;
         }
 
-        // Lista numerada
         if (/^\d+\.\s+/.test(line)) {
           const items = [];
           while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
@@ -581,7 +602,6 @@
           continue;
         }
 
-        // Parágrafo comum
         const para = [];
         while (
           i < lines.length &&
@@ -595,6 +615,17 @@
       }
 
       return html.join("\n");
+    }
+
+    function renderGroundingBadge(grounding) {
+      if (!grounding) return "";
+      if (grounding.checked_count === 0) {
+        return `<div class="grounding-bar ok">✓ Auditoria numérica automática: nenhuma métrica numérica citada nesta cena (resposta compatível com os payloads MCP).</div>`;
+      }
+      if (grounding.verified) {
+        return `<div class="grounding-bar ok">✓ Auditoria numérica automática: ${escapeHtml(grounding.checked_count)} métrica(s) citada(s) verificada(s) diretamente nos payloads MCP.</div>`;
+      }
+      return `<div class="grounding-bar warn">⚠ Auditoria numérica: valores sem correspondência direta nos payloads (${escapeHtml((grounding.ungrounded_numbers || []).join(", "))}).</div>`;
     }
 
     function renderSidebar() {
@@ -631,9 +662,9 @@
 
       const toolPillsHtml = (step.mcp_tool_calls || [])
         .map((call) => {
-          const isDenied = call.result && call.result.error === "ACCESS_DENIED_PORTFOLIO";
+          const isDenied = call.result && call.result.error === "PRODUCER_UNAVAILABLE";
           const args = JSON.stringify(call.arguments || {});
-          return `<span class="tool-pill ${isDenied ? "denied" : ""}">→ ${escapeHtml(call.tool)}(${escapeHtml(args)})${isDenied ? " [BLOQUEADO]" : ""}</span>`;
+          return `<span class="tool-pill ${isDenied ? "denied" : ""}">→ ${escapeHtml(call.tool)}(${escapeHtml(args)})${isDenied ? " [INDISPONÍVEL / BLOQUEADO]" : ""}</span>`;
         })
         .join("");
 
@@ -654,6 +685,15 @@
           </div>
         `)
         .join("");
+
+      const groundingBlockHtml = step.grounding_check
+        ? `
+          <div class="xray-block">
+            <div class="xray-title">Auditoria numérica (verificador automático)</div>
+            <pre>${escapeHtml(JSON.stringify(step.grounding_check, null, 2))}</pre>
+          </div>
+        `
+        : "";
 
       stage.innerHTML = `
         <div class="stage-header">
@@ -679,16 +719,18 @@
         <div class="chat-bubble bubble-assistant">
           <div class="bubble-label">YouShop Radar (${escapeHtml(meta.llm_model)} + MCP)</div>
           <div class="md-content">${renderMarkdown(step.assistant_response)}</div>
+          ${renderGroundingBadge(step.grounding_check)}
         </div>
 
         <div class="xray-wrapper">
           <button class="xray-toggle" id="xray-toggle" type="button">
-            <span>🔍 Raio-X MCP — Inspecionar payloads JSON brutos (auditoria LGPD & segurança)</span>
+            <span>🔍 Raio-X MCP — Inspecionar payloads JSON brutos e auditoria numérica</span>
             <span id="xray-arrow">Abrir ▾</span>
           </button>
           <div class="xray-body" id="xray-body">
             ${promptBlockHtml}
             ${toolBlocksHtml || "<p>Nenhuma tool chamada nesta cena.</p>"}
+            ${groundingBlockHtml}
           </div>
         </div>
       `;
@@ -711,7 +753,6 @@
       const xrayBody = document.getElementById("xray-body");
       const xrayArrow = document.getElementById("xray-arrow");
 
-      // Abre automaticamente o Raio-X na cena de recusa de segurança para destaque imediato
       if (step.id === "recusa_carteira") {
         xrayBody.classList.add("open");
         xrayArrow.textContent = "Fechar ▴";
@@ -741,7 +782,7 @@
           <div class="error-box">
             <strong>Não foi possível carregar <code>replay_data.json</code>.</strong><br />
             Se você abriu este arquivo direto pelo disco (<code>file://</code>), rode um servidor local com:<br />
-            <code>uv run python -m http.server 8000 --directory docs</code> e acesse <code>http://localhost:8000</code>.
+            <code>uv run python -m http.server 8000 --bind 127.0.0.1 --directory docs</code> e acesse <code>http://127.0.0.1:8000</code>.
           </div>
         `;
       }

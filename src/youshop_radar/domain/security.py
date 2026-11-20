@@ -1,13 +1,20 @@
-"""Camada de segurança: isolamento por carteira (sessão) e Allowlist LGPD."""
+"""Camada de segurança: isolamento por carteira (sessão) e minimização via Allowlist."""
 
 from __future__ import annotations
 
 from typing import Any
 
+from youshop_radar.config import (
+    ALLOWED_TICKET_CATEGORIES,
+    ALLOWED_WEBHOOK_ERRORS,
+    DEFAULT_MIN_RISK_SCORE,
+    SALES_DROP_ALERT_THRESHOLD_PCT,
+    WEBHOOK_ALERT_THRESHOLD_PCT,
+)
 from youshop_radar.data.repository import RadarRepository
 from youshop_radar.domain.scoring import compute_producer_signals, compute_weekly_history
 
-# Lista explícita de campos permitidos nas respostas (Allowlist — princípio da necessidade)
+# Lista explícita de campos permitidos nas respostas (minimização de dados)
 ALLOWED_SUMMARY_FIELDS = frozenset(
     {
         "producer_id",
@@ -40,6 +47,7 @@ ALLOWED_SIGNAL_FIELDS = frozenset(
         "webhook_total_events",
         "top_webhook_error",
         "sales_variation_vs_baseline_pct",
+        "baseline_status",
         "recent_orders_count",
         "open_tickets_total",
         "open_critical_tickets",
@@ -58,39 +66,72 @@ ALLOWED_HISTORY_FIELDS = frozenset(
     }
 )
 
+UNAVAILABLE_ERROR_CODE = "PRODUCER_UNAVAILABLE"
+UNAVAILABLE_ERROR_MESSAGE = "Produtor não encontrado na carteira autenticada."
 
-class PortfolioAccessError(PermissionError):
-    """Lançada quando o gerente autenticado tenta acessar produtor de outra carteira."""
+
+class ProducerUnavailableError(PermissionError):
+    """Lançada quando o produtor não existe ou não pertence à carteira da sessão.
+
+    Usa resposta única para evitar enumeração de clientes de outras carteiras.
+    """
 
 
 def _filter_allowlist(data: dict[str, Any], allowed_keys: frozenset[str]) -> dict[str, Any]:
     return {key: value for key, value in data.items() if key in allowed_keys}
 
 
-def _describe_main_signal(signals: dict[str, Any]) -> str:
-    s7 = signals["signals_last_7d"]
+def _sanitize_webhook_error(value: Any) -> str:
+    if isinstance(value, str) and value in ALLOWED_WEBHOOK_ERRORS:
+        return value
+    return "erro_nao_catalogado"
+
+
+def _sanitize_tickets_by_category(raw_tickets: dict[str, int]) -> dict[str, int]:
+    sanitized: dict[str, int] = {}
+    for category, qty in raw_tickets.items():
+        safe_key = category if category in ALLOWED_TICKET_CATEGORIES else "outros"
+        sanitized[safe_key] = sanitized.get(safe_key, 0) + int(qty)
+    return sanitized
+
+
+def _sanitize_signals_block(raw_signals: dict[str, Any]) -> dict[str, Any]:
+    filtered = _filter_allowlist(raw_signals, ALLOWED_SIGNAL_FIELDS)
+    filtered["top_webhook_error"] = _sanitize_webhook_error(filtered.get("top_webhook_error"))
+    raw_tickets = filtered.get("tickets_by_category") or {}
+    filtered["tickets_by_category"] = _sanitize_tickets_by_category(raw_tickets)
+    return filtered
+
+
+def _describe_main_signal(signals: dict[str, Any], safe_s7: dict[str, Any]) -> str:
     parts: list[str] = []
-    if s7["webhook_failure_rate_pct"] >= 15.0:
+    if safe_s7["webhook_failure_rate_pct"] >= WEBHOOK_ALERT_THRESHOLD_PCT:
         parts.append(
-            f"webhooks falhando ({s7['webhook_failure_rate_pct']}% - {s7['top_webhook_error']})"
+            f"webhooks falhando ({safe_s7['webhook_failure_rate_pct']}% - "
+            f"{safe_s7['top_webhook_error']})"
         )
-    if s7["sales_variation_vs_baseline_pct"] <= -15.0:
-        parts.append(f"vendas {s7['sales_variation_vs_baseline_pct']}% vs. média")
-    if s7["open_critical_tickets"] > 0:
-        parts.append(f"{s7['open_critical_tickets']} ticket(s) crítico(s) aberto(s)")
-    return "; ".join(parts) if parts else "operação estável nos últimos 7 dias"
+    sales_var = safe_s7["sales_variation_vs_baseline_pct"]
+    if sales_var is None:
+        parts.append("sem baseline de vendas nos 21 dias anteriores")
+    elif sales_var <= SALES_DROP_ALERT_THRESHOLD_PCT:
+        parts.append(f"vendas {sales_var}% vs. média")
+    if safe_s7["open_critical_tickets"] > 0:
+        parts.append(f"{safe_s7['open_critical_tickets']} ticket(s) crítico(s) aberto(s)")
+
+    if parts:
+        return "; ".join(parts)
+    if signals["risk_level"] == "sem_baseline":
+        return "sem histórico suficiente para baseline"
+    return "operação estável nos últimos 7 dias"
 
 
 def _require_owned_producer(
     repo: RadarRepository, session_manager_id: str, producer_ref: str
 ) -> dict[str, Any]:
     producer = repo.get_producer(producer_ref)
-    if producer is None:
-        raise LookupError(f"Produtor não encontrado: {producer_ref}")
-    if producer["manager_id"] != session_manager_id:
-        raise PortfolioAccessError(
-            "ACCESS_DENIED_PORTFOLIO: Acesso negado. O produtor solicitado não pertence "
-            "à carteira autenticada na sessão atual."
+    if producer is None or producer["manager_id"] != session_manager_id:
+        raise ProducerUnavailableError(
+            f"{UNAVAILABLE_ERROR_CODE}: {UNAVAILABLE_ERROR_MESSAGE}"
         )
     return producer
 
@@ -98,7 +139,7 @@ def _require_owned_producer(
 def list_at_risk_for_session(
     repo: RadarRepository,
     session_manager_id: str,
-    min_score: int = 50,
+    min_score: int = DEFAULT_MIN_RISK_SCORE,
 ) -> dict[str, Any]:
     """Lista apenas os produtores da carteira autenticada com score >= min_score."""
     min_score = max(0, min(100, int(min_score)))
@@ -108,9 +149,10 @@ def list_at_risk_for_session(
     for pid in producer_ids:
         raw = compute_producer_signals(repo, pid)
         if raw["risk_score"] >= min_score:
+            safe_s7 = _sanitize_signals_block(raw["signals_last_7d"])
             summary_candidate = {
                 **raw,
-                "main_signal": _describe_main_signal(raw),
+                "main_signal": _describe_main_signal(raw, safe_s7),
             }
             items.append(_filter_allowlist(summary_candidate, ALLOWED_SUMMARY_FIELDS))
 
@@ -121,7 +163,7 @@ def list_at_risk_for_session(
         "total_portfolio_producers": len(producer_ids),
         "flagged_count": len(items),
         "producers": items,
-        "data_notice": "Dados simulados (seed=42). Retorno filtrado por Allowlist LGPD.",
+        "data_notice": "Dados simulados (seed=42). Retorno minimizado via Allowlist.",
     }
 
 
@@ -134,9 +176,8 @@ def get_signals_for_session(
     producer = _require_owned_producer(repo, session_manager_id, producer_ref)
     raw = compute_producer_signals(repo, producer["id"])
 
-    safe_signals = _filter_allowlist(raw["signals_last_7d"], ALLOWED_SIGNAL_FIELDS)
     safe_detail = _filter_allowlist(raw, ALLOWED_DETAIL_FIELDS)
-    safe_detail["signals_last_7d"] = safe_signals
+    safe_detail["signals_last_7d"] = _sanitize_signals_block(raw["signals_last_7d"])
     return safe_detail
 
 

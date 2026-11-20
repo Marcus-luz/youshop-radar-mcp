@@ -1,4 +1,4 @@
-"""Cliente MCP local conectado via stdio à API gratuita do Groq.
+"""Cliente MCP local conectado via stdio à API do Groq.
 
 Totalmente desacoplado do servidor: não importa nenhum módulo de `youshop_radar`,
 descobrindo Tools, Resources e Prompts dinamicamente pelo protocolo MCP.
@@ -14,6 +14,7 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -64,7 +65,7 @@ DEMO_SCENARIOS: list[dict[str, Any]] = [
         "prompt_args": {"producer_ref": "Aurora Cosméticos", "channel": "whatsapp"},
         "user_message": (
             "Gere um rascunho de mensagem no WhatsApp para a Aurora Cosméticos "
-            "seguindo o playbook de retenção da YouShop (sem enviar)."
+            "seguindo o guia de retenção (sem enviar)."
         ),
     },
     {
@@ -87,6 +88,37 @@ DEMO_SCENARIOS: list[dict[str, Any]] = [
         ),
     },
 ]
+
+_MONTHS_RE = r"(?:jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\.?"
+_DATE_RANGE_RE = re.compile(
+    rf"\b\d{{1,2}}\s*(?:[–-]|a)\s*\d{{1,2}}\s*(?:de\s+)?{_MONTHS_RE}(?:\s*(?:de\s+)?\d{{2,4}})?\b",
+    re.IGNORECASE,
+)
+_SINGLE_DATE_RE = re.compile(
+    rf"\b\d{{1,2}}\s+(?:de\s+)?{_MONTHS_RE}(?:\s+(?:de\s+)?\d{{2,4}})?\b",
+    re.IGNORECASE,
+)
+_ISO_DATE_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
+_YEAR_RE = re.compile(r"\b20\d{2}\b")
+_WINDOW_OR_TIME_RE = re.compile(
+    r"\b(?:7|21)\s*dias?\b|\b[1-4]\s*semanas?\b|\b\d+\s*(?:min(?:utos?)?|h(?:oras?)?)\b",
+    re.IGNORECASE,
+)
+_ORDINAL_RE = re.compile(r"(?m)^\s*\d+\.\s+|\bprioridade\s+\d+\b", re.IGNORECASE)
+
+_PCT_RE = re.compile(r"([+-]?\d+(?:[.,]\d+)?)\s*%")
+_BRL_RE = re.compile(r"R\$\s*([\d.\s\u00a0\u202f]+,\d{2}|\d+(?:[.,]\d+)?)")
+_METRIC_AFTER_RE = re.compile(
+    r"(?:score(?:\s+de\s+risco)?|pedidos?\s+recentes?|tickets?\s+abertos?|"
+    r"tickets?\s+cr[ií]ticos?|criadores?\s+ativos?|creators?\s+ativos?)"
+    r"[^\d\n]{0,12}(\d+(?:[.,]\d+)?)",
+    re.IGNORECASE,
+)
+_METRIC_BEFORE_RE = re.compile(
+    r"(\d+(?:[.,]\d+)?)\s*(?:pedidos?|eventos?|falhas?|tickets?(?:\s+cr[ií]ticos?)?|"
+    r"creators?|criadores?)\b",
+    re.IGNORECASE,
+)
 
 
 def _tool_input_schema(tool: Any) -> dict[str, Any]:
@@ -116,6 +148,98 @@ def _try_parse_json(raw: str) -> Any:
         return json.loads(raw)
     except json.JSONDecodeError:
         return raw
+
+_SKIP_GROUNDING_KEYS = frozenset({"calibration_note", "data_notice", "week_range"})
+
+
+def _collect_payload_numbers(obj: Any, out: set[float]) -> None:
+    if isinstance(obj, bool):
+        return
+    if isinstance(obj, (int, float)):
+        out.add(abs(float(obj)))
+        return
+    if isinstance(obj, str):
+        for match in re.findall(r"\d+(?:\.\d+)?", obj):
+            out.add(abs(float(match)))
+        return
+    if isinstance(obj, dict):
+        for key, val in obj.items():
+            if key in _SKIP_GROUNDING_KEYS:
+                continue
+            _collect_payload_numbers(val, out)
+    elif isinstance(obj, list):
+        for item in obj:
+            _collect_payload_numbers(item, out)
+
+
+def _parse_ptbr_number(raw: str) -> float | None:
+    cleaned = re.sub(r"[\s\u00a0\u202f]+", "", raw).lstrip("+-")
+    if not cleaned:
+        return None
+    if "." in cleaned and "," in cleaned:
+        cleaned = cleaned.replace(".", "").replace(",", ".")
+    elif "," in cleaned:
+        cleaned = cleaned.replace(",", ".")
+    try:
+        return abs(float(cleaned))
+    except ValueError:
+        return None
+
+
+def _extract_table_numbers(text: str) -> list[str]:
+    found: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("|") or re.match(r"^\|[\s:|-]+\|$", stripped):
+            continue
+        cells = [c.strip() for c in stripped.split("|")[1:-1]]
+        for cell in cells[1:]:
+            plain = re.sub(r"[*_`~]", "", cell).strip()
+            if re.fullmatch(r"[+-]?[\d.\s\u00a0\u202f]+(?:,\d+)?%?", plain):
+                found.append(plain.rstrip("%").strip())
+    return found
+
+
+def verify_grounded_numbers(answer: str, tool_trace: list[dict[str, Any]]) -> dict[str, Any]:
+    """Confere se os números de métricas citados na resposta existem nos payloads MCP."""
+    grounded_pool: set[float] = set()
+    for call in tool_trace:
+        _collect_payload_numbers(call.get("result"), grounded_pool)
+
+    # Normaliza sinais especiais (ex.: hífen não separável U+2011)
+    normalized = answer.replace("\u2011", "-").replace("\u2212", "-")
+    scrubbed = _ISO_DATE_RE.sub(" ", normalized)
+    scrubbed = _DATE_RANGE_RE.sub(" ", scrubbed)
+    scrubbed = _SINGLE_DATE_RE.sub(" ", scrubbed)
+    scrubbed = _YEAR_RE.sub(" ", scrubbed)
+    scrubbed = _WINDOW_OR_TIME_RE.sub(" ", scrubbed)
+    scrubbed = _ORDINAL_RE.sub(" ", scrubbed)
+
+    raw_candidates: list[str] = []
+    for pattern in (_PCT_RE, _BRL_RE, _METRIC_AFTER_RE, _METRIC_BEFORE_RE):
+        raw_candidates.extend(pattern.findall(scrubbed))
+    raw_candidates.extend(_extract_table_numbers(scrubbed))
+
+    checked: list[str] = []
+    ungrounded: list[str] = []
+    seen_values: set[float] = set()
+
+    for raw in raw_candidates:
+        val = _parse_ptbr_number(raw)
+        if val is None or val in seen_values:
+            continue
+        seen_values.add(val)
+        label = raw.strip()
+        checked.append(label)
+        if not any(abs(val - ref) <= 0.05 for ref in grounded_pool):
+            ungrounded.append(label)
+
+    return {
+        "verified": len(ungrounded) == 0,
+        "checked_count": len(checked),
+        "checked_numbers": checked,
+        "ungrounded_numbers": ungrounded,
+    }
 
 
 def _build_groq_tools(mcp_tools: list[Any]) -> list[dict[str, Any]]:
@@ -153,7 +277,7 @@ async def _run_agent_turn(
             messages=messages,
             tools=groq_tools,
             tool_choice="auto",
-            temperature=0.1,
+            temperature=0.0,
         )
         msg = response.choices[0].message
 
@@ -222,36 +346,53 @@ async def _build_system_prompt(session: ClientSession) -> tuple[str, str]:
     playbook_uri, playbook_text = await _load_playbook_resource(session)
     system_prompt = (
         "Você é o YouShop Radar, um agente analítico somente leitura conectado via MCP "
-        "para apoiar gerentes de contas do Comercial da YouShop.\n"
+        "para apoiar gerentes de contas do Comercial.\n"
         "Regras obrigatórias:\n"
-        "- Sempre consulte as ferramentas MCP antes de responder; nunca invente números.\n"
-        "- Cite os sinais medidos retornados pelo servidor (score, taxa de webhook, variação de "
-        "vendas, tickets e creators ativos).\n"
-        "- Se o servidor retornar ACCESS_DENIED_PORTFOLIO, informe claramente que o acesso foi "
-        "recusado por isolamento de carteira da sessão e não tente contornar.\n"
-        "- Se o nível for `falso_alarme_tecnico`, destaque explicitamente o que os dados NÃO "
-        "comprovam (erro técnico sem queda de vendas) e recomende não tratar como churn urgente.\n"
-        "- Responda sempre em português do Brasil, de forma objetiva e clara para não técnicos.\n\n"
-        f"Playbook carregado do MCP Resource ({playbook_uri}):\n{playbook_text}"
+        "1. Sempre consulte as ferramentas MCP antes de responder. Nunca invente números nem "
+        "crie exemplos fictícios de tickets (como 'falha de pagamento', 'checkout travado' ou "
+        "'reembolso automático'). Copie exatamente as casas decimais retornadas pelo servidor "
+        "(ex.: escreva '32,1%' e '-40,1%', NUNCA arredonde para '32%' ou '40%').\n"
+        "2. Ao responder sobre quem precisa de atenção hoje, chame `list_at_risk_producers` com o "
+        "padrão `min_score=50` para focar em quem realmente exige ação. NÃO liste em detalhes "
+        "produtores saudáveis com score baixo/zero; informe apenas o total de contas sinalizadas "
+        "frente ao total da carteira.\n"
+        "3. Ao explicar causas técnicas prováveis (ex.: erro `assinatura_invalida`), use sempre "
+        "linguagem de hipótese ('pode indicar'), nunca como certeza absoluta. Use também o nome "
+        "exato do `risk_level` retornado (não chame um produtor de nível `alto` de "
+        "'alerta técnico precoce').\n"
+        "4. Em rascunhos de contato ao produtor (WhatsApp/e-mail/telefone), JAMAIS mencione score "
+        "numérico, 'baseline', classificação interna ('risco comercial alto') ou a palavra "
+        "'churn'. Use os percentuais exatos com 1 casa decimal (ex.: '32,1%' e '40,1%'), adote "
+        "tom consultivo e parceiro e comece com "
+        "'[RASCUNHO — REVISÃO E ENVIO HUMANO OBRIGATÓRIOS]'.\n"
+        "5. Se uma ferramenta retornar `PRODUCER_UNAVAILABLE`, responda de forma curta e objetiva "
+        "(no máximo 2 frases) informando apenas que o produtor não está disponível na carteira "
+        "autenticada e que eventuais dúvidas de escopo devem ser tratadas com a gestão comercial. "
+        "É PROIBIDO sugerir contornos como pedir relatórios ao produtor ou abrir ticket para "
+        "'acesso temporário'.\n"
+        "6. Se o nível for `falso_alarme_tecnico`, destaque explicitamente o que os dados NÃO "
+        "comprovam (erro em endpoint auxiliar sem queda de vendas e sem tickets críticos) e "
+        "recomende não tratar como churn urgente.\n"
+        "7. Responda sempre em português do Brasil, de forma objetiva e clara para não técnicos.\n\n"
+        f"Guia de exemplo carregado do MCP Resource ({playbook_uri}):\n{playbook_text}"
     )
     return playbook_uri, system_prompt
 
 
-def _server_params() -> StdioServerParameters:
+def _server_params(session_manager_id: str) -> StdioServerParameters:
     env = dict(os.environ)
-    env.setdefault("SESSION_MANAGER_ID", "mgr_ana")
+    env["SESSION_MANAGER_ID"] = session_manager_id
     return StdioServerParameters(
         command=sys.executable,
         args=["-m", "youshop_radar.mcp_server.server"],
         env=env,
     )
 
-async def run_recorded_demo(groq_client: Groq) -> None:
-    """Executa o roteiro de 5 cenas, mostra no terminal e grava docs/replay_data.json."""
-    session_manager = os.getenv("SESSION_MANAGER_ID", "mgr_ana")
 
+async def run_recorded_demo(groq_client: Groq, session_manager: str) -> None:
+    """Executa o roteiro de 5 cenas, audita números e grava docs/replay_data.json."""
     async with (
-        stdio_client(_server_params()) as (read_stream, write_stream),
+        stdio_client(_server_params(session_manager)) as (read_stream, write_stream),
         ClientSession(read_stream, write_stream) as session,
     ):
         await session.initialize()
@@ -310,9 +451,22 @@ async def run_recorded_demo(groq_client: Groq) -> None:
                 user_prompt=effective_prompt,
             )
 
+            grounding = verify_grounded_numbers(answer, tool_trace)
+
             for call in tool_trace:
                 args_str = json.dumps(call["arguments"], ensure_ascii=False)
                 console.print(f"  [dim]→ MCP Tool: {call['tool']}({args_str})[/dim]")
+
+            if grounding["verified"]:
+                console.print(
+                    f"  [green]✓ Verificador numérico: {grounding['checked_count']} "
+                    "métrica(s) conferida(s) nos payloads MCP[/green]"
+                )
+            else:
+                console.print(
+                    f"  [bold yellow]⚠ Verificador numérico encontrou valores fora dos payloads: "
+                    f"{grounding['ungrounded_numbers']}[/bold yellow]"
+                )
 
             console.print(
                 Panel(answer, title=f"YouShop Radar ({MODEL_NAME} + MCP)", border_style="green")
@@ -327,6 +481,7 @@ async def run_recorded_demo(groq_client: Groq) -> None:
                     "mcp_prompt_used": mcp_prompt_used,
                     "mcp_tool_calls": tool_trace,
                     "assistant_response": answer,
+                    "grounding_check": grounding,
                 }
             )
 
@@ -344,8 +499,8 @@ async def run_recorded_demo(groq_client: Groq) -> None:
                     "prompts": [p.name for p in mcp_prompts],
                 },
                 "disclaimer": (
-                    "Gravação de sessão real do servidor MCP com dados simulados (seed=42). "
-                    "Nenhuma ação real é executada."
+                    "Gravação de sessão real do servidor MCP com dados simulados (seed=42, "
+                    "data de referência 19/11/2026). Nenhuma ação real é executada."
                 ),
             },
             "steps": recorded_steps,
@@ -361,12 +516,10 @@ async def run_recorded_demo(groq_client: Groq) -> None:
         )
 
 
-async def run_interactive_chat(groq_client: Groq) -> None:
+async def run_interactive_chat(groq_client: Groq, session_manager: str) -> None:
     """Abre um chat interativo ao vivo no terminal contra o servidor MCP."""
-    session_manager = os.getenv("SESSION_MANAGER_ID", "mgr_ana")
-
     async with (
-        stdio_client(_server_params()) as (read_stream, write_stream),
+        stdio_client(_server_params(session_manager)) as (read_stream, write_stream),
         ClientSession(read_stream, write_stream) as session,
     ):
         await session.initialize()
@@ -420,11 +573,18 @@ def main() -> None:
         )
         sys.exit(1)
 
+    session_manager = os.getenv("SESSION_MANAGER_ID", "").strip()
+    if not session_manager:
+        console.print(
+            "[bold red]Erro:[/bold red] defina SESSION_MANAGER_ID (ex.: mgr_ana) no arquivo .env."
+        )
+        sys.exit(1)
+
     groq_client = Groq(api_key=api_key)
     if args.interactive:
-        asyncio.run(run_interactive_chat(groq_client))
+        asyncio.run(run_interactive_chat(groq_client, session_manager))
     else:
-        asyncio.run(run_recorded_demo(groq_client))
+        asyncio.run(run_recorded_demo(groq_client, session_manager))
 
 
 if __name__ == "__main__":

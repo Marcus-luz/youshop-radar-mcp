@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from youshop_radar.config import DEFAULT_DB_PATH
+from youshop_radar.config import DEFAULT_DB_PATH, get_db_path
 
 SCHEMA_SQL = """
 DROP TABLE IF EXISTS tickets;
@@ -58,7 +58,7 @@ CREATE TABLE tickets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     producer_id TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    -- Apenas categoria fixa (sem texto livre para evitar prompt injection)
+    -- Apenas categoria estruturada (validada contra lista fixa antes de sair do servidor)
     category TEXT NOT NULL,
     status TEXT NOT NULL,
     FOREIGN KEY (producer_id) REFERENCES producers(id)
@@ -73,9 +73,14 @@ def open_write_connection(db_path: Path | str = DEFAULT_DB_PATH) -> sqlite3.Conn
     return sqlite3.connect(path)
 
 
-def open_readonly_connection(db_path: Path | str = DEFAULT_DB_PATH) -> sqlite3.Connection:
+def open_readonly_connection(db_path: Path | str | None = None) -> sqlite3.Connection:
     """Abre conexão estritamente somente leitura para uso do servidor MCP."""
-    path = Path(db_path)
+    path = Path(db_path).resolve() if db_path is not None else get_db_path().resolve()
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Banco SQLite não encontrado em '{path}'. "
+            "Execute 'uv run python -m youshop_radar.data.seed' para gerar a base simulada."
+        )
     conn = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
     return conn

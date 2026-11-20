@@ -19,3 +19,9 @@ def seeded_db_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
 @pytest.fixture()
 def repo(seeded_db_path: Path) -> RadarRepository:
     return RadarRepository(seeded_db_path)
+
+
+@pytest.fixture()
+def fresh_db_path(tmp_path: Path) -> Path:
+    """Recria um banco temporário isolado por teste para casos de borda com escrita."""
+    return seed_database(tmp_path / "fresh_radar.db")

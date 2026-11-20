@@ -1,7 +1,8 @@
 """Motor determinístico de sinais e score de risco (0 a 100).
 
 Nota de calibração: pesos (40% webhook, 40% vendas, 20% tickets) e limiares
-são hipóteses iniciais a calibrar em piloto com dados reais da YouShop.
+são hipóteses iniciais a calibrar em piloto com histórico real. A sazonalidade
+neste protótipo é uma flag simulada por produtor (não inferida de série anual).
 """
 
 from __future__ import annotations
@@ -10,8 +11,21 @@ from datetime import timedelta
 from typing import Any
 
 from youshop_radar.config import (
+    AUXILIARY_WEBHOOK_ERRORS,
     CRITICAL_TICKET_CATEGORIES,
+    CRITICAL_TICKETS_SCALE_CAP,
+    CRITICAL_WEBHOOK_ERRORS,
+    EARLY_TECH_ALERT_MIN_SCORE,
+    FALSE_ALARM_MAX_SCORE,
     REFERENCE_DATE,
+    RISK_HIGH_THRESHOLD,
+    RISK_MEDIUM_THRESHOLD,
+    SALES_DROP_SCALE_CAP_PCT,
+    SALES_STABLE_FLOOR_PCT,
+    SEASONAL_DIP_MAX_SCORE,
+    SEASONAL_WEBHOOK_MAX_PCT,
+    WEBHOOK_ALERT_THRESHOLD_PCT,
+    WEBHOOK_SCALE_CAP_PCT,
     WEIGHT_SALES,
     WEIGHT_TICKETS,
     WEIGHT_WEBHOOK,
@@ -20,7 +34,7 @@ from youshop_radar.data.repository import RadarRepository
 
 CALIBRATION_NOTE = (
     "Score calculado por regra determinística (40% webhook, 40% vendas, 20% tickets). "
-    "Pesos e limiares são hipóteses iniciais a calibrar em piloto."
+    "Pesos, limiares e flag de sazonalidade são hipóteses simuladas para calibração em piloto."
 )
 
 
@@ -32,41 +46,44 @@ def compute_producer_signals(repo: RadarRepository, producer_ref: str) -> dict[s
 
     producer_id = producer["id"]
     recent_start = (REFERENCE_DATE - timedelta(days=6)).isoformat()
+    ref_end_exclusive = (REFERENCE_DATE + timedelta(days=1)).isoformat()
     baseline_start = (REFERENCE_DATE - timedelta(days=27)).isoformat()
-    baseline_end = (REFERENCE_DATE - timedelta(days=7)).isoformat()
-    ref_iso = REFERENCE_DATE.isoformat()
+    baseline_end_exclusive = recent_start
 
     # 1. Vendas recentes (7d) vs. média semanal do baseline (21d / 3)
-    recent_sales = repo.get_sales_summary(producer_id, recent_start, ref_iso)
-    baseline_sales = repo.get_sales_summary(producer_id, baseline_start, baseline_end)
+    recent_sales = repo.get_sales_summary(producer_id, recent_start, ref_end_exclusive)
+    baseline_sales = repo.get_sales_summary(producer_id, baseline_start, baseline_end_exclusive)
 
     baseline_weekly_avg = baseline_sales["revenue_brl"] / 3.0
     if baseline_weekly_avg > 0:
-        sales_variation_pct = round(
+        sales_variation_pct: float | None = round(
             ((recent_sales["revenue_brl"] - baseline_weekly_avg) / baseline_weekly_avg) * 100.0,
             1,
         )
+        baseline_status = "ok"
     else:
-        sales_variation_pct = 0.0
+        sales_variation_pct = None
+        baseline_status = "sem_baseline"
 
-    # 2. Falhas de webhook nos últimos 7 dias
-    wh = repo.get_webhook_summary(producer_id, recent_start, ref_iso)
+    # 2. Falhas de webhook nos últimos 7 dias (janela semiaberta)
+    wh = repo.get_webhook_summary(producer_id, recent_start, ref_end_exclusive)
     total_wh = wh["total"]
     failed_wh = wh["failed"]
+    top_error = wh["top_error"]
     webhook_failure_rate_pct = round((failed_wh / total_wh) * 100.0, 1) if total_wh > 0 else 0.0
 
-    # 3. Tickets abertos por categoria nos últimos 7 dias
-    tickets_by_category = repo.get_open_tickets_by_category(producer_id, recent_start, ref_iso)
+    # 3. Tickets abertos de qualquer idade até a data de referência
+    tickets_by_category = repo.get_open_tickets_by_category(producer_id, ref_end_exclusive)
     open_tickets_total = sum(tickets_by_category.values())
     open_critical_tickets = sum(
         qty for cat, qty in tickets_by_category.items() if cat in CRITICAL_TICKET_CATEGORIES
     )
 
     # 4. Score determinístico (0 a 100)
-    webhook_subscore = min(100.0, (webhook_failure_rate_pct / 30.0) * 100.0)
-    sales_drop_pct = max(0.0, -sales_variation_pct)
-    sales_subscore = min(100.0, (sales_drop_pct / 40.0) * 100.0)
-    ticket_subscore = min(100.0, (open_critical_tickets / 3.0) * 100.0)
+    webhook_subscore = min(100.0, (webhook_failure_rate_pct / WEBHOOK_SCALE_CAP_PCT) * 100.0)
+    sales_drop_pct = max(0.0, -sales_variation_pct) if sales_variation_pct is not None else 0.0
+    sales_subscore = min(100.0, (sales_drop_pct / SALES_DROP_SCALE_CAP_PCT) * 100.0)
+    ticket_subscore = min(100.0, (open_critical_tickets / CRITICAL_TICKETS_SCALE_CAP) * 100.0)
 
     raw_score = round(
         WEIGHT_WEBHOOK * webhook_subscore
@@ -74,30 +91,50 @@ def compute_producer_signals(repo: RadarRepository, producer_ref: str) -> dict[s
         + WEIGHT_TICKETS * ticket_subscore
     )
 
-    # Trava 1: Falso alarme técnico (muitos erros, mas vendas estáveis e sem ticket crítico)
+    sales_is_stable = (
+        sales_variation_pct is not None and sales_variation_pct >= SALES_STABLE_FLOOR_PCT
+    )
+    high_webhook_fail = webhook_failure_rate_pct >= WEBHOOK_ALERT_THRESHOLD_PCT
+
+    # Trava 1: Apenas erro em endpoint auxiliar com vendas estáveis vira falso alarme técnico
     is_technical_false_alarm = (
-        webhook_failure_rate_pct >= 15.0
-        and sales_variation_pct >= -5.0
+        high_webhook_fail
+        and top_error in AUXILIARY_WEBHOOK_ERRORS
+        and sales_is_stable
         and open_critical_tickets == 0
     )
-    # Trava 2: Queda isolada por sazonalidade (sem erro técnico nem ticket crítico)
+    # Trava 2: Erro crítico com vendas ainda estáveis vira alerta técnico precoce (não falso alarme)
+    is_early_technical_alert = (
+        high_webhook_fail
+        and top_error in CRITICAL_WEBHOOK_ERRORS
+        and (sales_is_stable or baseline_status == "sem_baseline")
+        and open_critical_tickets == 0
+    )
+    # Trava 3: Queda isolada com flag simulada de sazonalidade (sem erro técnico nem ticket)
     is_seasonal_dip = (
         bool(producer["seasonal_pattern"])
-        and webhook_failure_rate_pct < 5.0
+        and baseline_status == "ok"
+        and webhook_failure_rate_pct < SEASONAL_WEBHOOK_MAX_PCT
         and open_critical_tickets == 0
     )
 
     if is_technical_false_alarm:
-        risk_score = min(raw_score, 45)
+        risk_score = min(raw_score, FALSE_ALARM_MAX_SCORE)
         risk_level = "falso_alarme_tecnico"
+    elif is_early_technical_alert:
+        risk_score = max(raw_score, EARLY_TECH_ALERT_MIN_SCORE)
+        risk_level = "alerta_tecnico_precoce"
     elif is_seasonal_dip:
-        risk_score = min(raw_score, 35)
+        risk_score = min(raw_score, SEASONAL_DIP_MAX_SCORE)
         risk_level = "baixo_sazonalidade"
+    elif baseline_status == "sem_baseline" and raw_score < RISK_MEDIUM_THRESHOLD:
+        risk_score = raw_score
+        risk_level = "sem_baseline"
     else:
         risk_score = raw_score
-        if risk_score >= 70:
+        if risk_score >= RISK_HIGH_THRESHOLD:
             risk_level = "alto"
-        elif risk_score >= 50:
+        elif risk_score >= RISK_MEDIUM_THRESHOLD:
             risk_level = "medio"
         else:
             risk_level = "baixo"
@@ -116,8 +153,9 @@ def compute_producer_signals(repo: RadarRepository, producer_ref: str) -> dict[s
             "webhook_failure_rate_pct": webhook_failure_rate_pct,
             "webhook_failed_events": failed_wh,
             "webhook_total_events": total_wh,
-            "top_webhook_error": wh["top_error"],
+            "top_webhook_error": top_error,
             "sales_variation_vs_baseline_pct": sales_variation_pct,
+            "baseline_status": baseline_status,
             "recent_orders_count": recent_sales["orders_count"],
             "open_tickets_total": open_tickets_total,
             "open_critical_tickets": open_critical_tickets,
@@ -143,16 +181,17 @@ def compute_weekly_history(
     for week_offset in range(clamped_weeks - 1, -1, -1):
         end_day = REFERENCE_DATE - timedelta(days=week_offset * 7)
         start_day = end_day - timedelta(days=6)
-        start_iso, end_iso = start_day.isoformat(), end_day.isoformat()
+        start_iso = start_day.isoformat()
+        end_exclusive_iso = (end_day + timedelta(days=1)).isoformat()
 
-        sales = repo.get_sales_summary(producer_id, start_iso, end_iso)
-        wh = repo.get_webhook_summary(producer_id, start_iso, end_iso)
-        tickets_opened = repo.count_tickets_opened(producer_id, start_iso, end_iso)
+        sales = repo.get_sales_summary(producer_id, start_iso, end_exclusive_iso)
+        wh = repo.get_webhook_summary(producer_id, start_iso, end_exclusive_iso)
+        tickets_opened = repo.count_tickets_opened(producer_id, start_iso, end_exclusive_iso)
 
         wh_rate = round((wh["failed"] / wh["total"]) * 100.0, 1) if wh["total"] > 0 else 0.0
         history.append(
             {
-                "week_range": f"{start_iso} a {end_iso}",
+                "week_range": f"{start_iso} a {end_day.isoformat()}",
                 "orders_count": sales["orders_count"],
                 "revenue_brl": round(sales["revenue_brl"], 2),
                 "webhook_failure_rate_pct": wh_rate,
@@ -167,7 +206,7 @@ if __name__ == "__main__":
     repository = RadarRepository()
     header = (
         f"{'PRODUTOR':<22} | {'GERENTE':<10} | {'SCORE':>5} | "
-        f"{'NÍVEL':<21} | {'WH%':>5} | {'VENDAS%':>7}"
+        f"{'NÍVEL':<23} | {'WH%':>5} | {'VENDAS%':>7}"
     )
     print(header)
     print("-" * len(header))
@@ -175,9 +214,10 @@ if __name__ == "__main__":
         for pid in repository.list_producer_ids_by_manager(mgr):
             sig = compute_producer_signals(repository, pid)
             s7 = sig["signals_last_7d"]
+            var = s7["sales_variation_vs_baseline_pct"]
+            var_str = f"{var:+7.1f}" if var is not None else "    N/A"
             print(
                 f"{sig['producer_name']:<22} | {sig['manager_id']:<10} | "
-                f"{sig['risk_score']:>5} | {sig['risk_level']:<21} | "
-                f"{s7['webhook_failure_rate_pct']:>5.1f} | "
-                f"{s7['sales_variation_vs_baseline_pct']:>+7.1f}"
+                f"{sig['risk_score']:>5} | {sig['risk_level']:<23} | "
+                f"{s7['webhook_failure_rate_pct']:>5.1f} | {var_str}"
             )

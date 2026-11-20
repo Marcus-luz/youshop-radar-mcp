@@ -22,7 +22,7 @@ jobs:
         run: uv sync --locked
 
       - name: Lint com ruff
-        run: uv run ruff check src tests
+        run: uv run ruff check src tests demo_client
 
       - name: Testes automatizados com pytest
         run: uv run pytest -v
