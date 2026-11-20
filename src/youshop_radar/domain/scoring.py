@@ -55,58 +55,22 @@ def _select_top_webhook_error(errors_by_category: dict[str, int]) -> str:
     return ranked[0][0]
 
 
-def compute_producer_signals(repo: RadarRepository, producer_ref: str) -> dict[str, Any]:
-    """Calcula os sinais dos últimos 7 dias contra o baseline de 21 dias."""
-    producer = repo.get_producer(producer_ref)
-    if producer is None:
-        raise LookupError(f"Produtor não encontrado: {producer_ref}")
-
-    producer_id = producer["id"]
-    recent_start = (REFERENCE_DATE - timedelta(days=RECENT_WINDOW_DAYS - 1)).isoformat()
-    ref_end_exclusive = (REFERENCE_DATE + timedelta(days=1)).isoformat()
-    baseline_start = (
-        REFERENCE_DATE - timedelta(days=RECENT_WINDOW_DAYS + BASELINE_WINDOW_DAYS - 1)
-    ).isoformat()
-    baseline_end_exclusive = recent_start
-
-    # 1. Vendas recentes (7d) vs. média semanal do baseline (21d / 3)
-    recent_sales = repo.get_sales_summary(producer_id, recent_start, ref_end_exclusive)
-    baseline_sales = repo.get_sales_summary(producer_id, baseline_start, baseline_end_exclusive)
-
-    baseline_weeks = BASELINE_WINDOW_DAYS / RECENT_WINDOW_DAYS
-    baseline_weekly_avg = baseline_sales["revenue_brl"] / baseline_weeks
-    if baseline_weekly_avg > 0:
-        sales_variation_pct: float | None = round(
-            ((recent_sales["revenue_brl"] - baseline_weekly_avg) / baseline_weekly_avg) * 100.0,
-            1,
-        )
-        baseline_status = "ok"
-    else:
-        sales_variation_pct = None
-        baseline_status = "sem_baseline"
-
-    # 2. Falhas de webhook nos últimos 7 dias (todas as categorias + cautela para desconhecidas)
-    wh = repo.get_webhook_summary(producer_id, recent_start, ref_end_exclusive)
-    total_wh = wh["total"]
-    failed_wh = wh["failed"]
-    errors_by_category: dict[str, int] = wh["errors_by_category"]
-    top_error = _select_top_webhook_error(errors_by_category)
-    webhook_failure_rate_pct = round((failed_wh / total_wh) * 100.0, 1) if total_wh > 0 else 0.0
-
-    # Qualquer erro fora da lista explícita de auxiliares é tratado como crítico por cautela
+def evaluate_risk(
+    *,
+    webhook_failure_rate_pct: float,
+    errors_by_category: dict[str, int],
+    sales_variation_pct: float | None,
+    open_critical_tickets: int,
+    seasonal_pattern: bool,
+) -> tuple[int, str]:
+    """Calcula `(risk_score, risk_level)` de forma pura a partir dos sinais agregados."""
+    failed_wh = sum(errors_by_category.values())
     non_auxiliary_failed = sum(
         qty for err, qty in errors_by_category.items() if err not in AUXILIARY_WEBHOOK_ERRORS
     )
     only_auxiliary_errors = failed_wh > 0 and non_auxiliary_failed == 0
+    baseline_status = "ok" if sales_variation_pct is not None else "sem_baseline"
 
-    # 3. Tickets abertos de qualquer idade até a data de referência
-    tickets_by_category = repo.get_open_tickets_by_category(producer_id, ref_end_exclusive)
-    open_tickets_total = sum(tickets_by_category.values())
-    open_critical_tickets = sum(
-        qty for cat, qty in tickets_by_category.items() if cat in CRITICAL_TICKET_CATEGORIES
-    )
-
-    # 4. Score determinístico (0 a 100)
     webhook_subscore = min(100.0, (webhook_failure_rate_pct / WEBHOOK_SCALE_CAP_PCT) * 100.0)
     sales_drop_pct = max(0.0, -sales_variation_pct) if sales_variation_pct is not None else 0.0
     sales_subscore = min(100.0, (sales_drop_pct / SALES_DROP_SCALE_CAP_PCT) * 100.0)
@@ -123,20 +87,15 @@ def compute_producer_signals(repo: RadarRepository, producer_ref: str) -> dict[s
     )
     high_webhook_fail = webhook_failure_rate_pct >= WEBHOOK_ALERT_THRESHOLD_PCT
 
-    # Trava 1: Falso alarme técnico APENAS se 100% das falhas forem em endpoint auxiliar
     is_technical_false_alarm = (
         high_webhook_fail
         and only_auxiliary_errors
         and sales_is_stable
         and open_critical_tickets == 0
     )
-    # Trava 2: Qualquer erro crítico ou desconhecido com taxa >= limiar garante visibilidade
-    # (monotônico: tickets abertos ou queda leve de vendas aumentam o piso em vez de rebaixar)
     has_critical_or_unknown_webhook_alert = high_webhook_fail and non_auxiliary_failed > 0
-
-    # Trava 3: Queda isolada com flag simulada de sazonalidade (sem erro técnico nem ticket)
     is_seasonal_dip = (
-        bool(producer["seasonal_pattern"])
+        bool(seasonal_pattern)
         and baseline_status == "ok"
         and webhook_failure_rate_pct < SEASONAL_WEBHOOK_MAX_PCT
         and open_critical_tickets == 0
@@ -172,7 +131,58 @@ def compute_producer_signals(repo: RadarRepository, producer_ref: str) -> dict[s
         else:
             risk_level = "baixo"
 
-    risk_score = max(0, min(100, int(risk_score)))
+    return max(0, min(100, int(risk_score))), risk_level
+
+
+def compute_producer_signals(repo: RadarRepository, producer_ref: str) -> dict[str, Any]:
+    """Calcula os sinais dos últimos 7 dias contra o baseline de 21 dias."""
+    producer = repo.get_producer(producer_ref)
+    if producer is None:
+        raise LookupError(f"Produtor não encontrado: {producer_ref}")
+
+    producer_id = producer["id"]
+    recent_start = (REFERENCE_DATE - timedelta(days=RECENT_WINDOW_DAYS - 1)).isoformat()
+    ref_end_exclusive = (REFERENCE_DATE + timedelta(days=1)).isoformat()
+    baseline_start = (
+        REFERENCE_DATE - timedelta(days=RECENT_WINDOW_DAYS + BASELINE_WINDOW_DAYS - 1)
+    ).isoformat()
+    baseline_end_exclusive = recent_start
+
+    recent_sales = repo.get_sales_summary(producer_id, recent_start, ref_end_exclusive)
+    baseline_sales = repo.get_sales_summary(producer_id, baseline_start, baseline_end_exclusive)
+
+    baseline_weeks = BASELINE_WINDOW_DAYS / RECENT_WINDOW_DAYS
+    baseline_weekly_avg = baseline_sales["revenue_brl"] / baseline_weeks
+    if baseline_weekly_avg > 0:
+        sales_variation_pct: float | None = round(
+            ((recent_sales["revenue_brl"] - baseline_weekly_avg) / baseline_weekly_avg) * 100.0,
+            1,
+        )
+        baseline_status = "ok"
+    else:
+        sales_variation_pct = None
+        baseline_status = "sem_baseline"
+
+    wh = repo.get_webhook_summary(producer_id, recent_start, ref_end_exclusive)
+    total_wh = wh["total"]
+    failed_wh = wh["failed"]
+    errors_by_category: dict[str, int] = wh["errors_by_category"]
+    top_error = _select_top_webhook_error(errors_by_category)
+    webhook_failure_rate_pct = round((failed_wh / total_wh) * 100.0, 1) if total_wh > 0 else 0.0
+
+    tickets_by_category = repo.get_open_tickets_by_category(producer_id, ref_end_exclusive)
+    open_tickets_total = sum(tickets_by_category.values())
+    open_critical_tickets = sum(
+        qty for cat, qty in tickets_by_category.items() if cat in CRITICAL_TICKET_CATEGORIES
+    )
+
+    risk_score, risk_level = evaluate_risk(
+        webhook_failure_rate_pct=webhook_failure_rate_pct,
+        errors_by_category=errors_by_category,
+        sales_variation_pct=sales_variation_pct,
+        open_critical_tickets=open_critical_tickets,
+        seasonal_pattern=bool(producer["seasonal_pattern"]),
+    )
 
     return {
         "producer_id": producer_id,

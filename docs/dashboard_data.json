@@ -1,0 +1,931 @@
+{
+  "metadata": {
+    "project": "YouShop Radar MCP",
+    "seed": 42,
+    "reference_date": "2026-11-19",
+    "recent_window_days": 7,
+    "baseline_window_days": 21,
+    "calibration_note": "Score calculado por regra determinística (40% webhook, 40% vendas, 20% tickets). Pesos, limiares e flag de sazonalidade são hipóteses simuladas para calibração em piloto.",
+    "unavailable_error": {
+      "error": "PRODUCER_UNAVAILABLE",
+      "message": "Produtor não encontrado na carteira autenticada."
+    }
+  },
+  "scoring_config": {
+    "weight_webhook": 0.4,
+    "weight_sales": 0.4,
+    "weight_tickets": 0.2,
+    "webhook_scale_cap_pct": 30.0,
+    "sales_drop_scale_cap_pct": 40.0,
+    "critical_tickets_scale_cap": 3.0,
+    "webhook_alert_threshold_pct": 15.0,
+    "sales_stable_floor_pct": -5.0,
+    "seasonal_webhook_max_pct": 5.0,
+    "false_alarm_max_score": 45,
+    "early_tech_alert_min_score": 55,
+    "early_tech_impact_bonus_cap": 15,
+    "seasonal_dip_max_score": 35,
+    "risk_high_threshold": 70,
+    "risk_medium_threshold": 50,
+    "auxiliary_webhook_errors": [
+      "endpoint_analytics_offline"
+    ],
+    "critical_webhook_errors": [
+      "assinatura_invalida",
+      "timeout_checkout_pix"
+    ],
+    "critical_ticket_categories": [
+      "erro_integracao",
+      "falha_checkout"
+    ]
+  },
+  "managers": [
+    {
+      "id": "mgr_ana",
+      "name": "Ana Silva",
+      "role": "Gerente de Contas (Carteira A)"
+    },
+    {
+      "id": "mgr_carlos",
+      "name": "Carlos Mendes",
+      "role": "Gerente de Contas (Carteira B)"
+    }
+  ],
+  "portfolios": {
+    "mgr_ana": {
+      "summary": {
+        "session_manager_id": "mgr_ana",
+        "min_score_filter": 0,
+        "recent_window_days": 7,
+        "baseline_window_days": 21,
+        "total_portfolio_producers": 7,
+        "flagged_count": 7,
+        "producers": [
+          {
+            "producer_id": "prod_aurora",
+            "producer_name": "Aurora Cosméticos",
+            "category": "cosméticos",
+            "active_creators_count": 12,
+            "risk_score": 93,
+            "risk_level": "alto",
+            "main_signal": "webhooks falhando (32.1% - assinatura_invalida); vendas -40.1% vs. média (21d); 2 ticket(s) crítico(s) aberto(s)"
+          },
+          {
+            "producer_id": "prod_nutrimax",
+            "producer_name": "NutriMax Suplementos",
+            "category": "suplementos",
+            "active_creators_count": 7,
+            "risk_score": 83,
+            "risk_level": "alto",
+            "main_signal": "webhooks falhando (22.9% - timeout_checkout_pix); vendas -32.9% vs. média (21d); 3 ticket(s) crítico(s) aberto(s)"
+          },
+          {
+            "producer_id": "prod_vitapulse",
+            "producer_name": "VitaPulse Saúde",
+            "category": "saúde",
+            "active_creators_count": 8,
+            "risk_score": 56,
+            "risk_level": "alerta_tecnico_precoce",
+            "main_signal": "webhooks falhando (23.8% - assinatura_invalida)"
+          },
+          {
+            "producer_id": "prod_codemaster",
+            "producer_name": "CodeMaster Cursos",
+            "category": "cursos",
+            "active_creators_count": 9,
+            "risk_score": 38,
+            "risk_level": "falso_alarme_tecnico",
+            "main_signal": "webhooks falhando (28.6% - endpoint_analytics_offline)"
+          },
+          {
+            "producer_id": "prod_gestaopro",
+            "producer_name": "GestãoPro Software",
+            "category": "software",
+            "active_creators_count": 4,
+            "risk_score": 20,
+            "risk_level": "baixo_sazonalidade",
+            "main_signal": "vendas -20.4% vs. média (21d)"
+          },
+          {
+            "producer_id": "prod_essencia",
+            "producer_name": "Essência Natural",
+            "category": "cosméticos",
+            "active_creators_count": 6,
+            "risk_score": 0,
+            "risk_level": "baixo",
+            "main_signal": "operação estável nos últimos 7 dias"
+          },
+          {
+            "producer_id": "prod_fitpulse",
+            "producer_name": "FitPulse Suplementos",
+            "category": "suplementos",
+            "active_creators_count": 5,
+            "risk_score": 0,
+            "risk_level": "baixo",
+            "main_signal": "operação estável nos últimos 7 dias"
+          }
+        ],
+        "data_notice": "Dados simulados (seed=42). Retorno minimizado via Allowlist."
+      },
+      "details": {
+        "prod_aurora": {
+          "signals": {
+            "producer_id": "prod_aurora",
+            "producer_name": "Aurora Cosméticos",
+            "category": "cosméticos",
+            "active_creators_count": 12,
+            "risk_score": 93,
+            "risk_level": "alto",
+            "signals_last_7d": {
+              "recent_window_days": 7,
+              "baseline_window_days": 21,
+              "webhook_failure_rate_pct": 32.1,
+              "webhook_failed_events": 45,
+              "webhook_total_events": 140,
+              "top_webhook_error": "assinatura_invalida",
+              "webhook_errors_by_category": {
+                "assinatura_invalida": 45
+              },
+              "sales_variation_vs_baseline_pct": -40.1,
+              "baseline_status": "ok",
+              "recent_orders_count": 84,
+              "open_tickets_total": 2,
+              "open_critical_tickets": 2,
+              "tickets_by_category": {
+                "erro_integracao": 2
+              },
+              "known_seasonal_pattern": false
+            },
+            "calibration_note": "Score calculado por regra determinística (40% webhook, 40% vendas, 20% tickets). Pesos, limiares e flag de sazonalidade são hipóteses simuladas para calibração em piloto."
+          },
+          "history": {
+            "producer_id": "prod_aurora",
+            "producer_name": "Aurora Cosméticos",
+            "weeks_analyzed": 4,
+            "weekly_evolution": [
+              {
+                "week_range": "2026-10-23 a 2026-10-29",
+                "orders_count": 140,
+                "revenue_brl": 20941.66,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-10-30 a 2026-11-05",
+                "orders_count": 140,
+                "revenue_brl": 21000.06,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-11-06 a 2026-11-12",
+                "orders_count": 140,
+                "revenue_brl": 21032.87,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-11-13 a 2026-11-19",
+                "orders_count": 84,
+                "revenue_brl": 12582.86,
+                "webhook_failure_rate_pct": 32.1,
+                "tickets_opened": 2
+              }
+            ]
+          }
+        },
+        "prod_nutrimax": {
+          "signals": {
+            "producer_id": "prod_nutrimax",
+            "producer_name": "NutriMax Suplementos",
+            "category": "suplementos",
+            "active_creators_count": 7,
+            "risk_score": 83,
+            "risk_level": "alto",
+            "signals_last_7d": {
+              "recent_window_days": 7,
+              "baseline_window_days": 21,
+              "webhook_failure_rate_pct": 22.9,
+              "webhook_failed_events": 24,
+              "webhook_total_events": 105,
+              "top_webhook_error": "timeout_checkout_pix",
+              "webhook_errors_by_category": {
+                "timeout_checkout_pix": 24
+              },
+              "sales_variation_vs_baseline_pct": -32.9,
+              "baseline_status": "ok",
+              "recent_orders_count": 70,
+              "open_tickets_total": 3,
+              "open_critical_tickets": 3,
+              "tickets_by_category": {
+                "falha_checkout": 3
+              },
+              "known_seasonal_pattern": false
+            },
+            "calibration_note": "Score calculado por regra determinística (40% webhook, 40% vendas, 20% tickets). Pesos, limiares e flag de sazonalidade são hipóteses simuladas para calibração em piloto."
+          },
+          "history": {
+            "producer_id": "prod_nutrimax",
+            "producer_name": "NutriMax Suplementos",
+            "weeks_analyzed": 4,
+            "weekly_evolution": [
+              {
+                "week_range": "2026-10-23 a 2026-10-29",
+                "orders_count": 105,
+                "revenue_brl": 19876.46,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-10-30 a 2026-11-05",
+                "orders_count": 105,
+                "revenue_brl": 19796.23,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-11-06 a 2026-11-12",
+                "orders_count": 105,
+                "revenue_brl": 19952.46,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-11-13 a 2026-11-19",
+                "orders_count": 70,
+                "revenue_brl": 13326.88,
+                "webhook_failure_rate_pct": 22.9,
+                "tickets_opened": 3
+              }
+            ]
+          }
+        },
+        "prod_vitapulse": {
+          "signals": {
+            "producer_id": "prod_vitapulse",
+            "producer_name": "VitaPulse Saúde",
+            "category": "saúde",
+            "active_creators_count": 8,
+            "risk_score": 56,
+            "risk_level": "alerta_tecnico_precoce",
+            "signals_last_7d": {
+              "recent_window_days": 7,
+              "baseline_window_days": 21,
+              "webhook_failure_rate_pct": 23.8,
+              "webhook_failed_events": 25,
+              "webhook_total_events": 105,
+              "top_webhook_error": "assinatura_invalida",
+              "webhook_errors_by_category": {
+                "assinatura_invalida": 25
+              },
+              "sales_variation_vs_baseline_pct": -1.0,
+              "baseline_status": "ok",
+              "recent_orders_count": 84,
+              "open_tickets_total": 0,
+              "open_critical_tickets": 0,
+              "tickets_by_category": {},
+              "known_seasonal_pattern": false
+            },
+            "calibration_note": "Score calculado por regra determinística (40% webhook, 40% vendas, 20% tickets). Pesos, limiares e flag de sazonalidade são hipóteses simuladas para calibração em piloto."
+          },
+          "history": {
+            "producer_id": "prod_vitapulse",
+            "producer_name": "VitaPulse Saúde",
+            "weeks_analyzed": 4,
+            "weekly_evolution": [
+              {
+                "week_range": "2026-10-23 a 2026-10-29",
+                "orders_count": 84,
+                "revenue_brl": 11889.43,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-10-30 a 2026-11-05",
+                "orders_count": 84,
+                "revenue_brl": 11691.7,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-11-06 a 2026-11-12",
+                "orders_count": 84,
+                "revenue_brl": 11766.72,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-11-13 a 2026-11-19",
+                "orders_count": 84,
+                "revenue_brl": 11665.99,
+                "webhook_failure_rate_pct": 23.8,
+                "tickets_opened": 0
+              }
+            ]
+          }
+        },
+        "prod_codemaster": {
+          "signals": {
+            "producer_id": "prod_codemaster",
+            "producer_name": "CodeMaster Cursos",
+            "category": "cursos",
+            "active_creators_count": 9,
+            "risk_score": 38,
+            "risk_level": "falso_alarme_tecnico",
+            "signals_last_7d": {
+              "recent_window_days": 7,
+              "baseline_window_days": 21,
+              "webhook_failure_rate_pct": 28.6,
+              "webhook_failed_events": 30,
+              "webhook_total_events": 105,
+              "top_webhook_error": "endpoint_analytics_offline",
+              "webhook_errors_by_category": {
+                "endpoint_analytics_offline": 30
+              },
+              "sales_variation_vs_baseline_pct": 7.5,
+              "baseline_status": "ok",
+              "recent_orders_count": 105,
+              "open_tickets_total": 0,
+              "open_critical_tickets": 0,
+              "tickets_by_category": {},
+              "known_seasonal_pattern": false
+            },
+            "calibration_note": "Score calculado por regra determinística (40% webhook, 40% vendas, 20% tickets). Pesos, limiares e flag de sazonalidade são hipóteses simuladas para calibração em piloto."
+          },
+          "history": {
+            "producer_id": "prod_codemaster",
+            "producer_name": "CodeMaster Cursos",
+            "weeks_analyzed": 4,
+            "weekly_evolution": [
+              {
+                "week_range": "2026-10-23 a 2026-10-29",
+                "orders_count": 98,
+                "revenue_brl": 29117.12,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-10-30 a 2026-11-05",
+                "orders_count": 98,
+                "revenue_brl": 29019.96,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-11-06 a 2026-11-12",
+                "orders_count": 98,
+                "revenue_brl": 29290.73,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-11-13 a 2026-11-19",
+                "orders_count": 105,
+                "revenue_brl": 31329.26,
+                "webhook_failure_rate_pct": 28.6,
+                "tickets_opened": 0
+              }
+            ]
+          }
+        },
+        "prod_gestaopro": {
+          "signals": {
+            "producer_id": "prod_gestaopro",
+            "producer_name": "GestãoPro Software",
+            "category": "software",
+            "active_creators_count": 4,
+            "risk_score": 20,
+            "risk_level": "baixo_sazonalidade",
+            "signals_last_7d": {
+              "recent_window_days": 7,
+              "baseline_window_days": 21,
+              "webhook_failure_rate_pct": 0.0,
+              "webhook_failed_events": 0,
+              "webhook_total_events": 70,
+              "top_webhook_error": "nenhum",
+              "webhook_errors_by_category": {},
+              "sales_variation_vs_baseline_pct": -20.4,
+              "baseline_status": "ok",
+              "recent_orders_count": 56,
+              "open_tickets_total": 0,
+              "open_critical_tickets": 0,
+              "tickets_by_category": {},
+              "known_seasonal_pattern": true
+            },
+            "calibration_note": "Score calculado por regra determinística (40% webhook, 40% vendas, 20% tickets). Pesos, limiares e flag de sazonalidade são hipóteses simuladas para calibração em piloto."
+          },
+          "history": {
+            "producer_id": "prod_gestaopro",
+            "producer_name": "GestãoPro Software",
+            "weeks_analyzed": 4,
+            "weekly_evolution": [
+              {
+                "week_range": "2026-10-23 a 2026-10-29",
+                "orders_count": 70,
+                "revenue_brl": 13912.27,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-10-30 a 2026-11-05",
+                "orders_count": 70,
+                "revenue_brl": 13967.02,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-11-06 a 2026-11-12",
+                "orders_count": 70,
+                "revenue_brl": 14041.48,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-11-13 a 2026-11-19",
+                "orders_count": 56,
+                "revenue_brl": 11119.79,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              }
+            ]
+          }
+        },
+        "prod_essencia": {
+          "signals": {
+            "producer_id": "prod_essencia",
+            "producer_name": "Essência Natural",
+            "category": "cosméticos",
+            "active_creators_count": 6,
+            "risk_score": 0,
+            "risk_level": "baixo",
+            "signals_last_7d": {
+              "recent_window_days": 7,
+              "baseline_window_days": 21,
+              "webhook_failure_rate_pct": 0.0,
+              "webhook_failed_events": 0,
+              "webhook_total_events": 105,
+              "top_webhook_error": "nenhum",
+              "webhook_errors_by_category": {},
+              "sales_variation_vs_baseline_pct": 8.0,
+              "baseline_status": "ok",
+              "recent_orders_count": 91,
+              "open_tickets_total": 0,
+              "open_critical_tickets": 0,
+              "tickets_by_category": {},
+              "known_seasonal_pattern": false
+            },
+            "calibration_note": "Score calculado por regra determinística (40% webhook, 40% vendas, 20% tickets). Pesos, limiares e flag de sazonalidade são hipóteses simuladas para calibração em piloto."
+          },
+          "history": {
+            "producer_id": "prod_essencia",
+            "producer_name": "Essência Natural",
+            "weeks_analyzed": 4,
+            "weekly_evolution": [
+              {
+                "week_range": "2026-10-23 a 2026-10-29",
+                "orders_count": 84,
+                "revenue_brl": 10048.81,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-10-30 a 2026-11-05",
+                "orders_count": 84,
+                "revenue_brl": 10119.61,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-11-06 a 2026-11-12",
+                "orders_count": 84,
+                "revenue_brl": 10073.45,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-11-13 a 2026-11-19",
+                "orders_count": 91,
+                "revenue_brl": 10887.31,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              }
+            ]
+          }
+        },
+        "prod_fitpulse": {
+          "signals": {
+            "producer_id": "prod_fitpulse",
+            "producer_name": "FitPulse Suplementos",
+            "category": "suplementos",
+            "active_creators_count": 5,
+            "risk_score": 0,
+            "risk_level": "baixo",
+            "signals_last_7d": {
+              "recent_window_days": 7,
+              "baseline_window_days": 21,
+              "webhook_failure_rate_pct": 0.0,
+              "webhook_failed_events": 0,
+              "webhook_total_events": 84,
+              "top_webhook_error": "nenhum",
+              "webhook_errors_by_category": {},
+              "sales_variation_vs_baseline_pct": 0.1,
+              "baseline_status": "ok",
+              "recent_orders_count": 84,
+              "open_tickets_total": 1,
+              "open_critical_tickets": 0,
+              "tickets_by_category": {
+                "duvida_relatorio": 1
+              },
+              "known_seasonal_pattern": false
+            },
+            "calibration_note": "Score calculado por regra determinística (40% webhook, 40% vendas, 20% tickets). Pesos, limiares e flag de sazonalidade são hipóteses simuladas para calibração em piloto."
+          },
+          "history": {
+            "producer_id": "prod_fitpulse",
+            "producer_name": "FitPulse Suplementos",
+            "weeks_analyzed": 4,
+            "weekly_evolution": [
+              {
+                "week_range": "2026-10-23 a 2026-10-29",
+                "orders_count": 84,
+                "revenue_brl": 13402.09,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-10-30 a 2026-11-05",
+                "orders_count": 84,
+                "revenue_brl": 13318.98,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-11-06 a 2026-11-12",
+                "orders_count": 84,
+                "revenue_brl": 13275.6,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-11-13 a 2026-11-19",
+                "orders_count": 84,
+                "revenue_brl": 13350.0,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 1
+              }
+            ]
+          }
+        }
+      }
+    },
+    "mgr_carlos": {
+      "summary": {
+        "session_manager_id": "mgr_carlos",
+        "min_score_filter": 0,
+        "recent_window_days": 7,
+        "baseline_window_days": 21,
+        "total_portfolio_producers": 2,
+        "flagged_count": 2,
+        "producers": [
+          {
+            "producer_id": "prod_bella",
+            "producer_name": "BellaSuplementos",
+            "category": "suplementos",
+            "active_creators_count": 10,
+            "risk_score": 93,
+            "risk_level": "alto",
+            "main_signal": "webhooks falhando (38.1% - assinatura_invalida); vendas -44.1% vs. média (21d); 2 ticket(s) crítico(s) aberto(s)"
+          },
+          {
+            "producer_id": "prod_academy",
+            "producer_name": "AcademyFlow Cursos",
+            "category": "cursos",
+            "active_creators_count": 8,
+            "risk_score": 0,
+            "risk_level": "baixo",
+            "main_signal": "operação estável nos últimos 7 dias"
+          }
+        ],
+        "data_notice": "Dados simulados (seed=42). Retorno minimizado via Allowlist."
+      },
+      "details": {
+        "prod_bella": {
+          "signals": {
+            "producer_id": "prod_bella",
+            "producer_name": "BellaSuplementos",
+            "category": "suplementos",
+            "active_creators_count": 10,
+            "risk_score": 93,
+            "risk_level": "alto",
+            "signals_last_7d": {
+              "recent_window_days": 7,
+              "baseline_window_days": 21,
+              "webhook_failure_rate_pct": 38.1,
+              "webhook_failed_events": 48,
+              "webhook_total_events": 126,
+              "top_webhook_error": "assinatura_invalida",
+              "webhook_errors_by_category": {
+                "assinatura_invalida": 48
+              },
+              "sales_variation_vs_baseline_pct": -44.1,
+              "baseline_status": "ok",
+              "recent_orders_count": 70,
+              "open_tickets_total": 2,
+              "open_critical_tickets": 2,
+              "tickets_by_category": {
+                "erro_integracao": 1,
+                "falha_checkout": 1
+              },
+              "known_seasonal_pattern": false
+            },
+            "calibration_note": "Score calculado por regra determinística (40% webhook, 40% vendas, 20% tickets). Pesos, limiares e flag de sazonalidade são hipóteses simuladas para calibração em piloto."
+          },
+          "history": {
+            "producer_id": "prod_bella",
+            "producer_name": "BellaSuplementos",
+            "weeks_analyzed": 4,
+            "weekly_evolution": [
+              {
+                "week_range": "2026-10-23 a 2026-10-29",
+                "orders_count": 126,
+                "revenue_brl": 22059.7,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-10-30 a 2026-11-05",
+                "orders_count": 126,
+                "revenue_brl": 21961.22,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-11-06 a 2026-11-12",
+                "orders_count": 126,
+                "revenue_brl": 22103.78,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-11-13 a 2026-11-19",
+                "orders_count": 70,
+                "revenue_brl": 12319.23,
+                "webhook_failure_rate_pct": 38.1,
+                "tickets_opened": 2
+              }
+            ]
+          }
+        },
+        "prod_academy": {
+          "signals": {
+            "producer_id": "prod_academy",
+            "producer_name": "AcademyFlow Cursos",
+            "category": "cursos",
+            "active_creators_count": 8,
+            "risk_score": 0,
+            "risk_level": "baixo",
+            "signals_last_7d": {
+              "recent_window_days": 7,
+              "baseline_window_days": 21,
+              "webhook_failure_rate_pct": 0.0,
+              "webhook_failed_events": 0,
+              "webhook_total_events": 70,
+              "top_webhook_error": "nenhum",
+              "webhook_errors_by_category": {},
+              "sales_variation_vs_baseline_pct": 10.6,
+              "baseline_status": "ok",
+              "recent_orders_count": 77,
+              "open_tickets_total": 0,
+              "open_critical_tickets": 0,
+              "tickets_by_category": {},
+              "known_seasonal_pattern": false
+            },
+            "calibration_note": "Score calculado por regra determinística (40% webhook, 40% vendas, 20% tickets). Pesos, limiares e flag de sazonalidade são hipóteses simuladas para calibração em piloto."
+          },
+          "history": {
+            "producer_id": "prod_academy",
+            "producer_name": "AcademyFlow Cursos",
+            "weeks_analyzed": 4,
+            "weekly_evolution": [
+              {
+                "week_range": "2026-10-23 a 2026-10-29",
+                "orders_count": 70,
+                "revenue_brl": 24316.19,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-10-30 a 2026-11-05",
+                "orders_count": 70,
+                "revenue_brl": 24499.91,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-11-06 a 2026-11-12",
+                "orders_count": 70,
+                "revenue_brl": 24484.33,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              },
+              {
+                "week_range": "2026-11-13 a 2026-11-19",
+                "orders_count": 77,
+                "revenue_brl": 27014.92,
+                "webhook_failure_rate_pct": 0.0,
+                "tickets_opened": 0
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "directory": [
+    {
+      "producer_id": "prod_aurora",
+      "producer_name": "Aurora Cosméticos",
+      "owner_manager_id": "mgr_ana"
+    },
+    {
+      "producer_id": "prod_nutrimax",
+      "producer_name": "NutriMax Suplementos",
+      "owner_manager_id": "mgr_ana"
+    },
+    {
+      "producer_id": "prod_vitapulse",
+      "producer_name": "VitaPulse Saúde",
+      "owner_manager_id": "mgr_ana"
+    },
+    {
+      "producer_id": "prod_codemaster",
+      "producer_name": "CodeMaster Cursos",
+      "owner_manager_id": "mgr_ana"
+    },
+    {
+      "producer_id": "prod_gestaopro",
+      "producer_name": "GestãoPro Software",
+      "owner_manager_id": "mgr_ana"
+    },
+    {
+      "producer_id": "prod_essencia",
+      "producer_name": "Essência Natural",
+      "owner_manager_id": "mgr_ana"
+    },
+    {
+      "producer_id": "prod_fitpulse",
+      "producer_name": "FitPulse Suplementos",
+      "owner_manager_id": "mgr_ana"
+    },
+    {
+      "producer_id": "prod_bella",
+      "producer_name": "BellaSuplementos",
+      "owner_manager_id": "mgr_carlos"
+    },
+    {
+      "producer_id": "prod_academy",
+      "producer_name": "AcademyFlow Cursos",
+      "owner_manager_id": "mgr_carlos"
+    }
+  ],
+  "parity_cases": [
+    {
+      "id": "risco_alto_aurora",
+      "label": "Risco alto (Aurora)",
+      "webhook_failure_rate_pct": 32.1,
+      "errors_by_category": {
+        "assinatura_invalida": 45
+      },
+      "sales_variation_pct": -40.1,
+      "open_critical_tickets": 2,
+      "seasonal_pattern": false,
+      "expected_risk_score": 93,
+      "expected_risk_level": "alto"
+    },
+    {
+      "id": "risco_alto_nutrimax",
+      "label": "Risco alto (NutriMax)",
+      "webhook_failure_rate_pct": 22.9,
+      "errors_by_category": {
+        "timeout_checkout_pix": 24
+      },
+      "sales_variation_pct": -32.9,
+      "open_critical_tickets": 3,
+      "seasonal_pattern": false,
+      "expected_risk_score": 83,
+      "expected_risk_level": "alto"
+    },
+    {
+      "id": "alerta_precoce_vitapulse",
+      "label": "Alerta técnico precoce (VitaPulse)",
+      "webhook_failure_rate_pct": 23.8,
+      "errors_by_category": {
+        "assinatura_invalida": 25
+      },
+      "sales_variation_pct": -1.0,
+      "open_critical_tickets": 0,
+      "seasonal_pattern": false,
+      "expected_risk_score": 56,
+      "expected_risk_level": "alerta_tecnico_precoce"
+    },
+    {
+      "id": "falso_alarme_codemaster",
+      "label": "Falso alarme técnico (CodeMaster)",
+      "webhook_failure_rate_pct": 28.6,
+      "errors_by_category": {
+        "endpoint_analytics_offline": 30
+      },
+      "sales_variation_pct": 7.5,
+      "open_critical_tickets": 0,
+      "seasonal_pattern": false,
+      "expected_risk_score": 38,
+      "expected_risk_level": "falso_alarme_tecnico"
+    },
+    {
+      "id": "sazonalidade_gestaopro",
+      "label": "Queda sazonal simulada (GestãoPro)",
+      "webhook_failure_rate_pct": 0.0,
+      "errors_by_category": {},
+      "sales_variation_pct": -20.4,
+      "open_critical_tickets": 0,
+      "seasonal_pattern": true,
+      "expected_risk_score": 20,
+      "expected_risk_level": "baixo_sazonalidade"
+    },
+    {
+      "id": "erros_mistos_aux_e_critico",
+      "label": "Erros mistos (27 aux + 20 críticos)",
+      "webhook_failure_rate_pct": 30.9,
+      "errors_by_category": {
+        "endpoint_analytics_offline": 27,
+        "assinatura_invalida": 20
+      },
+      "sales_variation_pct": 2.0,
+      "open_critical_tickets": 0,
+      "seasonal_pattern": false,
+      "expected_risk_score": 55,
+      "expected_risk_level": "alerta_tecnico_precoce"
+    },
+    {
+      "id": "critico_com_ticket_aberto",
+      "label": "Falha crítica + 1 ticket aberto",
+      "webhook_failure_rate_pct": 20.0,
+      "errors_by_category": {
+        "assinatura_invalida": 20
+      },
+      "sales_variation_pct": 0.0,
+      "open_critical_tickets": 1,
+      "seasonal_pattern": false,
+      "expected_risk_score": 62,
+      "expected_risk_level": "medio"
+    },
+    {
+      "id": "critico_com_queda_leve",
+      "label": "Falha crítica + queda leve (-5.8%)",
+      "webhook_failure_rate_pct": 20.0,
+      "errors_by_category": {
+        "assinatura_invalida": 20
+      },
+      "sales_variation_pct": -5.8,
+      "open_critical_tickets": 0,
+      "seasonal_pattern": false,
+      "expected_risk_score": 61,
+      "expected_risk_level": "medio"
+    },
+    {
+      "id": "categoria_desconhecida",
+      "label": "Categoria desconhecida (cautela)",
+      "webhook_failure_rate_pct": 25.0,
+      "errors_by_category": {
+        "erro_nao_catalogado": 25
+      },
+      "sales_variation_pct": 0.0,
+      "open_critical_tickets": 0,
+      "seasonal_pattern": false,
+      "expected_risk_score": 55,
+      "expected_risk_level": "alerta_tecnico_precoce"
+    },
+    {
+      "id": "sem_baseline",
+      "label": "Produtor sem histórico (sem_baseline)",
+      "webhook_failure_rate_pct": 0.0,
+      "errors_by_category": {},
+      "sales_variation_pct": null,
+      "open_critical_tickets": 0,
+      "seasonal_pattern": false,
+      "expected_risk_score": 0,
+      "expected_risk_level": "sem_baseline"
+    },
+    {
+      "id": "saudavel",
+      "label": "Operação saudável",
+      "webhook_failure_rate_pct": 0.0,
+      "errors_by_category": {},
+      "sales_variation_pct": 8.0,
+      "open_critical_tickets": 0,
+      "seasonal_pattern": false,
+      "expected_risk_score": 0,
+      "expected_risk_level": "baixo"
+    }
+  ]
+}

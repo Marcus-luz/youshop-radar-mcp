@@ -3,792 +3,1093 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>YouShop Radar MCP — Demo Interativa (Replay Real)</title>
+  <title>YouShop Radar MCP — Protótipo Interativo</title>
   <style>
     :root {
-      --bg: #0b1020;
-      --surface: #121933;
-      --surface-alt: #182244;
-      --border: #27345f;
-      --text: #e9eefc;
-      --muted: #9fb0db;
-      --accent: #38bdf8;
-      --accent-soft: rgba(56, 189, 248, 0.14);
-      --green: #34d399;
-      --green-soft: rgba(52, 211, 153, 0.14);
-      --amber: #fbbf24;
-      --amber-soft: rgba(251, 191, 36, 0.14);
-      --red: #f87171;
-      --red-soft: rgba(248, 113, 113, 0.14);
-      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --navy: #0B2545;
+      --navy-deep: #071930;
+      --navy-card: #13345E;
+      --lime: #7ED919;
+      --lime-dark: #3F7A07;
+      --lime-soft: #F0FDE4;
+      --bg: #F6F8FB;
+      --surface: #FFFFFF;
+      --border: #DCE4F0;
+      --text: #162238;
+      --muted: #5A6B84;
+      --red: #B91C1C;
+      --red-soft: #FEF2F2;
+      --amber: #B45309;
+      --amber-soft: #FFFBEB;
+      --blue: #1D4ED8;
+      --blue-soft: #EFF6FF;
+      --green: #15803D;
+      --green-soft: #F0FDF4;
+      --radius: 12px;
+      --shadow: 0 2px 10px rgba(11, 37, 69, 0.06);
     }
-
     * { box-sizing: border-box; }
-
     body {
       margin: 0;
-      font-family: var(--sans);
-      background: radial-gradient(circle at top right, #16224a 0%, var(--bg) 55%);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
       color: var(--text);
-      line-height: 1.6;
-      min-height: 100vh;
+      line-height: 1.5;
     }
-
-    .container {
-      max-width: 1180px;
-      margin: 0 auto;
-      padding: 28px 20px 64px;
-    }
-
     header {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 24px 28px;
-      margin-bottom: 20px;
+      background: linear-gradient(135deg, var(--navy-deep), var(--navy));
+      color: #fff;
+      padding: 24px 20px 18px;
+      border-bottom: 4px solid var(--lime);
     }
-
+    .container { max-width: 1180px; margin: 0 auto; }
     .header-top {
       display: flex;
       flex-wrap: wrap;
       justify-content: space-between;
-      align-items: flex-start;
-      gap: 16px;
+      align-items: center;
+      gap: 14px;
     }
-
-    h1 {
-      margin: 0 0 6px;
-      font-size: 1.75rem;
-      letter-spacing: -0.02em;
+    .brand h1 { margin: 0; font-size: 1.65rem; letter-spacing: -0.02em; }
+    .brand h1 span { color: var(--lime); }
+    .brand p { margin: 4px 0 0; color: #CBD5E1; font-size: 0.94rem; }
+    .header-links { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn-link {
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.25);
+      color: #fff;
+      background: rgba(255,255,255,0.08);
     }
+    .btn-link:hover { background: rgba(255,255,255,0.16); }
+    .btn-link.primary { background: var(--lime); color: var(--navy-deep); border-color: var(--lime); }
 
-    .subtitle {
-      margin: 0;
-      color: var(--muted);
-      max-width: 720px;
-      font-size: 0.98rem;
-    }
-
-    .badges {
+    .honesty-strip {
+      margin-top: 16px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(126, 217, 25, 0.35);
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 16px;
+      gap: 12px 20px;
+      font-size: 0.83rem;
+      color: #E2E8F0;
     }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.78rem;
-      font-weight: 600;
-      padding: 5px 10px;
-      border-radius: 999px;
-      background: var(--surface-alt);
-      border: 1px solid var(--border);
-      color: var(--text);
-    }
-
-    .badge.green { background: var(--green-soft); border-color: rgba(52, 211, 153, 0.35); color: var(--green); }
-    .badge.blue { background: var(--accent-soft); border-color: rgba(56, 189, 248, 0.35); color: var(--accent); }
-    .badge.amber { background: var(--amber-soft); border-color: rgba(251, 191, 36, 0.35); color: var(--amber); }
-
-    .repo-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      text-decoration: none;
-      background: var(--accent);
-      color: #061224;
-      font-weight: 700;
-      font-size: 0.88rem;
-      padding: 10px 16px;
-      border-radius: 10px;
-      transition: opacity 0.15s ease;
-    }
-
-    .repo-link:hover { opacity: 0.9; }
-
-    .notice {
-      background: var(--amber-soft);
-      border: 1px solid rgba(251, 191, 36, 0.3);
-      color: #fde68a;
-      border-radius: 12px;
-      padding: 12px 16px;
-      font-size: 0.88rem;
-      margin-bottom: 22px;
-    }
-
-    .layout {
-      display: grid;
-      grid-template-columns: 300px 1fr;
-      gap: 20px;
-      align-items: start;
-    }
-
-    @media (max-width: 900px) {
-      .layout { grid-template-columns: 1fr; }
-    }
-
-    .sidebar {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 16px;
-      position: sticky;
-      top: 16px;
-    }
-
-    .sidebar h2 {
-      margin: 0 0 12px;
-      font-size: 0.85rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-    }
-
-    .scene-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .scene-btn {
-      width: 100%;
-      text-align: left;
-      background: var(--surface-alt);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 12px 14px;
-      border-radius: 12px;
-      cursor: pointer;
-      transition: border-color 0.15s ease, background 0.15s ease;
-    }
-
-    .scene-btn:hover { border-color: var(--accent); }
-
-    .scene-btn.active {
-      background: var(--accent-soft);
-      border-color: var(--accent);
-    }
-
-    .scene-btn .scene-title {
-      display: block;
-      font-weight: 600;
-      font-size: 0.92rem;
-      margin-bottom: 4px;
-    }
-
-    .scene-btn .scene-tag {
+    .tag {
       display: inline-block;
       font-size: 0.72rem;
-      color: var(--muted);
-      font-family: var(--mono);
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      vertical-align: middle;
+      margin-right: 4px;
+    }
+    .tag-real { background: var(--lime); color: var(--navy-deep); }
+    .tag-sim { background: #FDE68A; color: #78350F; }
+    .tag-ext { background: #BFDBFE; color: #1E3A8A; }
+
+    nav.tabs {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .tabs-inner {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 10px 20px;
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+    .tab-btn {
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--navy);
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 9px 15px;
+      border-radius: 9px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: 0.15s ease;
+    }
+    .tab-btn:hover { border-color: var(--navy); }
+    .tab-btn.active {
+      background: var(--navy);
+      color: #fff;
+      border-color: var(--navy);
     }
 
-    .meta-box {
-      margin-top: 16px;
-      padding-top: 14px;
-      border-top: 1px solid var(--border);
-      font-size: 0.8rem;
-      color: var(--muted);
-    }
+    main { max-width: 1180px; margin: 22px auto 48px; padding: 0 20px; }
+    .panel { display: none; }
+    .panel.active { display: block; }
 
-    .meta-box div { margin-bottom: 4px; }
-    .meta-box code { color: var(--text); font-family: var(--mono); font-size: 0.76rem; }
-
-    .stage {
+    .card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 24px;
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+    .card h2, .card h3 { margin: 0 0 8px; color: var(--navy); }
+    .card h2 { font-size: 1.2rem; }
+    .card h3 { font-size: 1.02rem; }
+    .subtext { margin: 0 0 14px; color: var(--muted); font-size: 0.9rem; }
+
+    .grid-2 { display: grid; grid-template-columns: 1.05fr 1fr; gap: 18px; align-items: start; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    @media (max-width: 900px) {
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
     }
 
-    .stage-header {
+    /* Manager bar */
+    .manager-bar {
       display: flex;
       flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
       gap: 12px;
-      padding-bottom: 16px;
-      margin-bottom: 20px;
-      border-bottom: 1px solid var(--border);
+      padding: 14px 18px;
+      background: var(--navy);
+      color: #fff;
+      border-radius: var(--radius);
+      margin-bottom: 18px;
     }
-
-    .stage-header h2 {
-      margin: 0;
-      font-size: 1.25rem;
-    }
-
-    .nav-controls {
-      display: flex;
-      gap: 8px;
-    }
-
-    .btn {
-      background: var(--surface-alt);
-      color: var(--text);
-      border: 1px solid var(--border);
-      padding: 8px 14px;
+    .manager-bar label { font-size: 0.85rem; color: #CBD5E1; margin-right: 8px; font-weight: 600; }
+    select, input[type="text"] {
+      font-family: inherit;
+      font-size: 0.9rem;
+      padding: 8px 12px;
       border-radius: 8px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    .btn:hover:not(:disabled) { border-color: var(--accent); }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn.primary { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-
-    .chat-bubble {
-      border-radius: 14px;
-      padding: 16px 18px;
-      margin-bottom: 16px;
-    }
-
-    .bubble-user {
-      background: #1a284f;
-      border: 1px solid #2e437d;
-    }
-
-    .bubble-assistant {
-      background: #0f172f;
       border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
     }
 
-    .bubble-label {
+    /* Badges for risk_level */
+    .badge {
+      display: inline-block;
       font-size: 0.76rem;
       font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--accent);
-      margin-bottom: 6px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      white-space: nowrap;
     }
+    .lvl-alto { background: var(--red-soft); color: var(--red); border: 1px solid #FECACA; }
+    .lvl-medio { background: var(--amber-soft); color: var(--amber); border: 1px solid #FDE68A; }
+    .lvl-alerta_tecnico_precoce { background: #FFF7ED; color: #C2410C; border: 1px solid #FED7AA; }
+    .lvl-falso_alarme_tecnico { background: var(--blue-soft); color: var(--blue); border: 1px solid #BFDBFE; }
+    .lvl-baixo_sazonalidade { background: #F3E8FF; color: #6B21A8; border: 1px solid #E9D5FF; }
+    .lvl-sem_baseline { background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; }
+    .lvl-baixo { background: var(--green-soft); color: var(--green); border: 1px solid #BBF7D0; }
 
-    .bubble-assistant .bubble-label { color: var(--green); }
-
-    .tool-pills {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-
-    .tool-pill {
-      font-family: var(--mono);
-      font-size: 0.78rem;
-      padding: 5px 10px;
-      border-radius: 8px;
-      background: var(--surface-alt);
+    /* Producer list */
+    .producer-row {
       border: 1px solid var(--border);
-      color: var(--accent);
-    }
-
-    .tool-pill.denied {
-      background: var(--red-soft);
-      border-color: rgba(248, 113, 113, 0.4);
-      color: var(--red);
-    }
-
-    .grounding-bar {
-      margin-top: 14px;
-      padding: 10px 14px;
       border-radius: 10px;
-      font-size: 0.84rem;
-      font-weight: 600;
-    }
-
-    .grounding-bar.ok {
-      background: var(--green-soft);
-      border: 1px solid rgba(52, 211, 153, 0.35);
-      color: var(--green);
-    }
-
-    .grounding-bar.warn {
-      background: var(--amber-soft);
-      border: 1px solid rgba(251, 191, 36, 0.4);
-      color: var(--amber);
-    }
-
-    .md-content p { margin: 0 0 12px; }
-    .md-content p:last-child { margin-bottom: 0; }
-    .md-content h3 { margin: 16px 0 8px; font-size: 1rem; color: var(--accent); }
-    .md-content ul, .md-content ol { margin: 6px 0 12px 20px; padding: 0; }
-    .md-content li { margin-bottom: 4px; }
-    .md-content hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
-    .md-content blockquote {
-      margin: 12px 0;
-      padding: 10px 14px;
-      border-left: 3px solid var(--amber);
-      background: var(--amber-soft);
-      border-radius: 0 8px 8px 0;
-      font-size: 0.9rem;
-    }
-    .md-content code {
-      font-family: var(--mono);
-      font-size: 0.85em;
-      background: var(--surface-alt);
-      padding: 2px 6px;
-      border-radius: 5px;
-      color: #93c5fd;
-    }
-
-    .table-wrap { overflow-x: auto; margin: 12px 0; }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.88rem;
-    }
-    th, td {
-      text-align: left;
-      padding: 9px 12px;
-      border: 1px solid var(--border);
-    }
-    th { background: var(--surface-alt); color: var(--accent); }
-
-    .xray-wrapper {
-      margin-top: 16px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      overflow: hidden;
-      background: #090e1c;
-    }
-
-    .xray-toggle {
-      width: 100%;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: 0.15s ease;
+      background: #fff;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: var(--surface-alt);
-      color: var(--text);
-      border: none;
-      padding: 12px 16px;
-      font-size: 0.9rem;
+      gap: 12px;
+    }
+    .producer-row:hover { border-color: var(--navy); background: #FAFBFD; }
+    .producer-row.selected {
+      border-color: var(--navy);
+      box-shadow: inset 4px 0 0 var(--lime);
+      background: #F4F9FF;
+    }
+    .prod-title { font-weight: 700; color: var(--navy); font-size: 0.98rem; }
+    .prod-reason { font-size: 0.85rem; color: var(--muted); margin-top: 3px; }
+    .score-pill {
+      min-width: 54px;
+      text-align: center;
+      font-weight: 800;
+      font-size: 1.05rem;
+      padding: 6px 10px;
+      border-radius: 10px;
+      background: var(--bg);
+      color: var(--navy);
+      border: 1px solid var(--border);
+    }
+
+    /* Metrics strip */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin: 12px 0 16px;
+    }
+    .metric-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .metric-box .k { font-size: 0.76rem; color: var(--muted); text-transform: uppercase; font-weight: 700; }
+    .metric-box .v { font-size: 1.2rem; font-weight: 800; color: var(--navy); margin-top: 2px; }
+    .metric-box .s { font-size: 0.8rem; color: var(--muted); }
+
+    /* Cross-portfolio security tester */
+    .security-box {
+      border: 1px solid #FECACA;
+      background: #FFFDFD;
+    }
+    .btn-sm {
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--navy);
+      font-weight: 600;
+      font-size: 0.82rem;
+      padding: 6px 11px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .btn-sm:hover { background: #E2E8F0; }
+    .btn-sm.danger { border-color: #FCA5A5; background: var(--red-soft); color: var(--red); }
+    .refusal-box {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 9px;
+      background: var(--red-soft);
+      border: 1px solid #FCA5A5;
+      color: var(--red);
+      font-size: 0.88rem;
+      display: none;
+    }
+    .refusal-box code { background: rgba(185, 28, 28, 0.1); padding: 2px 5px; border-radius: 4px; }
+
+    /* Simulator */
+    .control-group { margin-bottom: 14px; }
+    .control-group label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--navy);
+      margin-bottom: 4px;
+    }
+    input[type="range"] { width: 100%; accent-color: var(--navy); }
+    .preset-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .sim-result-score {
+      font-size: 2.8rem;
+      font-weight: 900;
+      color: var(--navy);
+      line-height: 1;
+    }
+    .parity-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 8px;
+      background: var(--green-soft);
+      color: var(--green);
+      border: 1px solid #86EFAC;
+    }
+    .parity-badge.fail { background: var(--red-soft); color: var(--red); border-color: #FCA5A5; }
+
+    /* Replay section */
+    .scene-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .scene-btn {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--navy);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.84rem;
       font-weight: 600;
       cursor: pointer;
     }
-
-    .xray-body {
-      display: none;
-      padding: 16px;
-      border-top: 1px solid var(--border);
+    .scene-btn.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+    .chat-user {
+      background: var(--blue-soft);
+      border: 1px solid #BFDBFE;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
     }
-
-    .xray-body.open { display: block; }
-
-    .xray-block { margin-bottom: 16px; }
-    .xray-block:last-child { margin-bottom: 0; }
-
-    .xray-title {
-      font-family: var(--mono);
+    .chat-ai {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--lime);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+    .audit-pill {
+      display: inline-block;
       font-size: 0.8rem;
-      color: var(--amber);
-      margin-bottom: 6px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--green-soft);
+      color: var(--green);
+      border: 1px solid #86EFAC;
+      margin-bottom: 10px;
     }
-
-    pre {
-      margin: 0;
+    details.xray {
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: #F8FAFC;
+      padding: 10px 14px;
+    }
+    details.xray summary { cursor: pointer; font-weight: 700; color: var(--navy); font-size: 0.88rem; }
+    pre.json-pre {
+      background: var(--navy-deep);
+      color: #E2E8F0;
       padding: 12px;
       border-radius: 8px;
-      background: #060a14;
-      border: 1px solid #1e294d;
       overflow-x: auto;
-      font-family: var(--mono);
       font-size: 0.78rem;
-      line-height: 1.5;
-      color: #cbd5f5;
+      line-height: 1.45;
     }
 
-    .arch-grid {
-      margin-top: 24px;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
+    /* Tables inside markdown & diagnosis */
+    table.clean-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+      font-size: 0.86rem;
     }
-
-    @media (max-width: 800px) {
-      .arch-grid { grid-template-columns: 1fr; }
-    }
-
-    .arch-card {
-      background: var(--surface);
+    table.clean-table th, table.clean-table td {
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 18px;
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
     }
+    table.clean-table th { background: var(--navy); color: #fff; font-weight: 600; }
+    table.clean-table tr:nth-child(even) td { background: #F8FAFC; }
 
-    .arch-card h3 {
-      margin: 0 0 8px;
-      font-size: 0.98rem;
-      color: var(--accent);
+    .svg-wrap {
+      width: 100%;
+      overflow-x: auto;
+      background: #FCFDFE;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
     }
-
-    .arch-card p {
-      margin: 0;
-      font-size: 0.88rem;
+    footer {
+      text-align: center;
+      font-size: 0.82rem;
       color: var(--muted);
-    }
-
-    .error-box {
       padding: 20px;
-      border-radius: 12px;
-      background: var(--red-soft);
-      border: 1px solid rgba(248, 113, 113, 0.4);
-      color: #fecaca;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
+  <header>
+    <div class="container">
       <div class="header-top">
-        <div>
-          <h1>YouShop Radar MCP</h1>
-          <p class="subtitle">
-            Protótipo funcional de agente analítico somente leitura via
-            <strong>Model Context Protocol (SDK Python v2)</strong> para detecção preventiva de risco
-            de churn em produtores — cruzando webhooks, vendas e tickets com isolamento de carteira
-            <em>fail-closed</em> e minimização de dados via Allowlist.
-          </p>
+        <div class="brand">
+          <h1>YouShop <span>Radar</span> MCP</h1>
+          <p>Detecção preventiva de risco de produtores para o Comercial — código determinístico para medir, IA para explicar.</p>
         </div>
-        <a class="repo-link" href="https://github.com/Marcus-luz/youshop-radar-mcp" target="_blank" rel="noopener">
-          Ver código no GitHub →
-        </a>
+        <div class="header-links">
+          <a class="btn-link primary" href="https://github.com/Marcus-luz/youshop-radar-mcp" target="_blank" rel="noopener">Repositório GitHub (Código + CI)</a>
+        </div>
       </div>
-      <div class="badges">
-        <span class="badge green">✓ MCP SDK Python v2 (3 Tools · 1 Resource · 1 Prompt)</span>
-        <span class="badge blue">Score Determinístico (0–100)</span>
-        <span class="badge blue">Somente Leitura · Human-in-the-Loop</span>
-        <span class="badge amber">Sessão Fail-Closed + Anti-Enumeração + Allowlist</span>
+      <div class="honesty-strip">
+        <div><span class="tag tag-real">Real</span> Servidor MCP Python v2 (stdio, somente leitura), regras de score, Allowlist e testes automatizados no CI.</div>
+        <div><span class="tag tag-sim">Simulado</span> Base sintética (seed=42, 9 produtores), simulador em JS (paridade testada) e conversa gravada sem chave de API no navegador.</div>
       </div>
-    </header>
-
-    <div class="notice" id="disclaimer-bar">
-      Carregando gravação real da sessão MCP...
     </div>
+  </header>
 
-    <div class="layout">
-      <aside class="sidebar">
-        <h2>Roteiro da Demo (5 Cenas)</h2>
-        <div class="scene-list" id="scene-list"></div>
-        <div class="meta-box" id="meta-box"></div>
-      </aside>
-
-      <main class="stage" id="stage">
-        <p>Carregando dados da sessão...</p>
-      </main>
+  <nav class="tabs" aria-label="Navegação do protótipo">
+    <div class="tabs-inner">
+      <button class="tab-btn active" data-tab="painel">1. Painel do Gerente & Isolamento</button>
+      <button class="tab-btn" data-tab="simulador">2. Simulador de Regras</button>
+      <button class="tab-btn" data-tab="replay">3. Conversa com a IA (Replay MCP)</button>
+      <button class="tab-btn" data-tab="diagnostico">4. Diagnóstico, Limites & Piloto</button>
     </div>
+  </nav>
 
-    <section class="arch-grid" aria-label="Arquitetura em 3 camadas">
-      <div class="arch-card">
-        <h3>1. Camada Data (SQLite Readonly)</h3>
-        <p>
-          Banco simulado determinístico (<code>seed=42</code>, data fixa <code>19/11/2026</code>) com
-          8 produtores em 2 carteiras. Consultas com janela semiaberta (<code>>=</code> e
-          <code><</code>) e tickets abertos de qualquer idade.
-        </p>
+  <main>
+    <!-- ABA 1: PAINEL DO GERENTE + DETALHE SVG + TROCA DE GERENTE -->
+    <section id="tab-painel" class="panel active">
+      <div class="manager-bar">
+        <div>
+          <label for="managerSelect">Sessão autenticada (SESSION_MANAGER_ID):</label>
+          <select id="managerSelect"></select>
+        </div>
+        <div style="font-size:0.84rem; color:#CBD5E1;">
+          Dados exportados diretamente do motor Python (<code style="color:var(--lime);">dashboard_data.json</code>) · Data ref.: <strong id="refDateLabel">19/11/2026</strong>
+        </div>
       </div>
-      <div class="arch-card">
-        <h3>2. Camada Domain (Score + Segurança)</h3>
-        <p>
-          Score determinístico com distinção entre <code>alerta_tecnico_precoce</code> (erro crítico)
-          e <code>falso_alarme_tecnico</code> (endpoint auxiliar), anti-enumeração e sanitização de
-          valores contra <em>prompt injection</em>.
-        </p>
-      </div>
-      <div class="arch-card">
-        <h3>3. Camada MCP Server + Cliente</h3>
-        <p>
-          Adaptador fino em <code>MCPServer</code> (<code>stdio</code>) com inicialização sob demanda
-          e sessão <em>fail-closed</em>. Cliente desacoplado com verificador automático de números
-          contra os payloads MCP.
-        </p>
+
+      <div class="grid-2">
+        <div>
+          <div class="card">
+            <h2>Quem precisa de atenção hoje?</h2>
+            <p class="subtext">Carteira ordenada por prioridade determinística. Clique em um produtor para abrir os sinais e a evolução semanal.</p>
+            <div id="portfolioList"></div>
+          </div>
+
+          <div class="card security-box">
+            <h3>Teste de isolamento entre carteiras (Anti-Enumeração)</h3>
+            <p class="subtext">Tente consultar um produtor de outra carteira ou um nome inexistente. O servidor devolve a mesma recusa para não revelar clientes alheios.</p>
+            <div class="preset-row" id="crossPortfolioButtons"></div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <input type="text" id="customLookupInput" placeholder="Ex.: EmpresaInexistente ou outro produtor" style="flex:1; min-width:200px;" />
+              <button class="btn-sm" id="customLookupBtn">Testar consulta</button>
+            </div>
+            <div id="refusalBox" class="refusal-box"></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card" id="detailCard">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+              <div>
+                <h2 id="detailName" style="margin-bottom:4px;">Selecione um produtor</h2>
+                <div id="detailMeta" class="subtext" style="margin-bottom:0;"></div>
+              </div>
+              <div id="detailLevelBadge"></div>
+            </div>
+
+            <div class="metrics-grid" id="detailMetrics"></div>
+
+            <h3 style="margin-top:8px;">Evolução semanal (últimas 4 semanas — SVG)</h3>
+            <p class="subtext" style="margin-bottom:8px;">Barras azuis: volume de pedidos pagos · Linha vermelha: taxa de falha de webhook (%).</p>
+            <div class="svg-wrap" id="weeklySvgContainer"></div>
+            <div id="weeklyTableContainer" style="margin-top:12px;"></div>
+          </div>
+        </div>
       </div>
     </section>
-  </div>
 
+    <!-- ABA 2: SIMULADOR -->
+    <section id="tab-simulador" class="panel">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+          <div>
+            <h2>Simulador do motor determinístico <span class="tag tag-sim">Navegador JS</span></h2>
+            <p class="subtext" style="margin-bottom:0;">Ajuste os sinais para testar ao vivo como o Radar diferencia risco alto, alerta técnico precoce, erros mistos e falso alarme.</p>
+          </div>
+          <div id="parityBadge" class="parity-badge">Verificando paridade Python ↔ JS...</div>
+        </div>
+
+        <div class="preset-row">
+          <button class="btn-sm" data-preset="risco_alto_aurora">Risco alto (Aurora)</button>
+          <button class="btn-sm" data-preset="alerta_precoce_vitapulse">Alerta precoce</button>
+          <button class="btn-sm" data-preset="erros_mistos_aux_e_critico">Erros mistos (aux + crítico)</button>
+          <button class="btn-sm" data-preset="falso_alarme_codemaster">Falso alarme técnico</button>
+          <button class="btn-sm" data-preset="critico_com_ticket_aberto">Crítico + 1 ticket</button>
+          <button class="btn-sm" data-preset="sazonalidade_gestaopro">Sazonalidade</button>
+          <button class="btn-sm" data-preset="sem_baseline">Sem baseline</button>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <div class="control-group">
+              <label for="simWebhookRate">Taxa de falha de webhook (7 dias) <span id="simWebhookRateVal">23.8%</span></label>
+              <input type="range" id="simWebhookRate" min="0" max="60" step="0.1" value="23.8" />
+            </div>
+
+            <div class="control-group">
+              <label for="simErrorType">Tipo de erro de webhook predominante / composição</label>
+              <select id="simErrorType" style="width:100%;">
+                <option value="assinatura_invalida">assinatura_invalida (crítico)</option>
+                <option value="timeout_checkout_pix">timeout_checkout_pix (crítico)</option>
+                <option value="misto">Misto: 27 auxiliares + 20 assinatura_invalida (crítico)</option>
+                <option value="erro_nao_catalogado">erro_nao_catalogado (desconhecido → tratado como crítico)</option>
+                <option value="endpoint_analytics_offline">endpoint_analytics_offline (100% auxiliar)</option>
+              </select>
+            </div>
+
+            <div class="control-group">
+              <label for="simSalesVar">Variação de vendas vs. baseline (21 dias) <span id="simSalesVarVal">-1.0%</span></label>
+              <input type="range" id="simSalesVar" min="-50" max="20" step="0.1" value="-1.0" />
+              <label style="font-weight:500; justify-content:flex-start; gap:8px; margin-top:6px; cursor:pointer;">
+                <input type="checkbox" id="simNoBaseline" /> Conta nova sem histórico nos 21 dias anteriores (sem_baseline)
+              </label>
+            </div>
+
+            <div class="control-group">
+              <label for="simTickets">Tickets críticos abertos (qualquer idade) <span id="simTicketsVal">0</span></label>
+              <input type="range" id="simTickets" min="0" max="5" step="1" value="0" />
+            </div>
+
+            <div class="control-group">
+              <label style="font-weight:500; justify-content:flex-start; gap:8px; cursor:pointer;">
+                <input type="checkbox" id="simSeasonal" /> Padrão sazonal conhecido (flag simulada)
+              </label>
+            </div>
+          </div>
+
+          <div class="card" style="background:var(--bg); margin-bottom:0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+              <div>
+                <div style="font-size:0.78rem; font-weight:700; color:var(--muted); text-transform:uppercase;">Score Calculado</div>
+                <div class="sim-result-score" id="simScoreOut">--</div>
+              </div>
+              <div id="simLevelOut"></div>
+            </div>
+            <p id="simReasonOut" style="margin:12px 0; font-size:0.92rem; color:var(--text);"></p>
+            <div class="metrics-grid" style="margin-bottom:0;">
+              <div class="metric-box"><div class="k">Subscore Webhook (40%)</div><div class="v" id="subWh">--</div></div>
+              <div class="metric-box"><div class="k">Subscore Vendas (40%)</div><div class="v" id="subSales">--</div></div>
+              <div class="metric-box"><div class="k">Subscore Tickets (20%)</div><div class="v" id="subTkt">--</div></div>
+              <div class="metric-box"><div class="k">Status da Regra</div><div class="v" style="font-size:0.95rem;" id="subRuleMode">Determinístico</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 3: REPLAY GRAVADO COM A IA -->
+    <section id="tab-replay" class="panel">
+      <div class="card">
+        <h2>Conversa real gravada com o servidor MCP <span class="tag tag-sim">Replay sem chave no browser</span></h2>
+        <p class="subtext" id="replayMetaText">Carregando sessão gravada de docs/replay_data.json...</p>
+        <div class="scene-list" id="sceneButtons"></div>
+        <div id="sceneContainer"></div>
+      </div>
+    </section>
+
+    <!-- ABA 4: DIAGNÓSTICO, LIMITES E PILOTO -->
+    <section id="tab-diagnostico" class="panel">
+      <div class="card">
+        <h2>Pesquisa de Diagnóstico <span class="tag tag-ext">Evidências públicas — separadas dos dados simulados</span></h2>
+        <p class="subtext">Para validar se a dor existe no mercado real sem depender apenas de hipótese, levantamos fontes públicas verificáveis do ecossistema de vendas digitais e webhooks.</p>
+        <table class="clean-table">
+          <thead>
+            <tr>
+              <th>Fonte pública</th>
+              <th>O que foi analisado</th>
+              <th>Evidência encontrada</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Site & Central YouShop</strong> (nov/2026)</td>
+              <td><code>youshop.co</code> e <code>ajuda.youshop.co</code></td>
+              <td>A página inicial destaca: <em>"Seu checkout trava na hora H e você perde vendas sem nem saber"</em>. A Central mantém guias de Webhooks, Checkout e Creators.</td>
+            </tr>
+            <tr>
+              <td><strong>Reclame Aqui</strong> (mar/2024 – jul/2026)</td>
+              <td>Relatos públicos de produtores (Kiwify e Hotmart)</td>
+              <td>Padrão recorrente de falhas silenciosas: erro na geração de Pix por dias, webhook de assinatura quebrado gerando prejuízo e produto pausado por demora no diagnóstico técnico.</td>
+            </tr>
+            <tr>
+              <td><strong>Docs técnicas</strong> (Eduzz ago/2026 · Stripe)</td>
+              <td>Guias públicos de Webhooks e verificação de assinatura</td>
+              <td>Confirmam que retornos diferentes de HTTP 200, timeouts e falhas de assinatura derrubam a entrega de eventos e exigem monitoramento ativo.</td>
+            </tr>
+            <tr>
+              <td><strong>Baymard Institute</strong> (out/2026)</td>
+              <td><em>Cart Abandonment Rate</em> (50 estudos de e-commerce)</td>
+              <td>Taxa média de abandono de <strong>70,22%</strong>; entre compradores que desistem, <strong>17%</strong> apontam diretamente erros ou travamentos no site.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="subtext" style="margin:10px 0 0;"><strong>Limite da evidência:</strong> trata-se de <em>proxies</em> externos de mercado. A frequência real desses eventos na YouShop só pode ser medida no piloto com dados internos.</p>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h2>Limites declarados (o que o protótipo NÃO faz)</h2>
+          <ul style="padding-left:18px; margin:8px 0 0; font-size:0.9rem;">
+            <li><strong>Zero escrita em produção:</strong> o servidor é estritamente somente leitura; nunca envia mensagens nem altera contas (revisão humana obrigatória).</li>
+            <li><strong>Dados e sazonalidade simulados:</strong> base sintética (<code>seed=42</code>, 9 produtores, data fixa 19/11/2026) e flag sazonal estática.</li>
+            <li><strong>Pesos hipotéticos:</strong> 40% webhook, 40% vendas e 20% tickets são ponto de partida para calibrar com histórico real.</li>
+            <li><strong>Autenticação e LLM em produção:</strong> hoje usa <code>SESSION_MANAGER_ID</code> local e API Groq (EUA) apenas com dados simulados; produção exige OAuth2/JWT + contrato/DPA ou inferência controlada.</li>
+            <li><strong>IA pode errar:</strong> causas técnicas aparecem sempre como hipótese ("pode indicar") junto aos sinais medidos.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h2>Piloto controlado (4 a 6 semanas)</h2>
+          <p class="subtext">Comparando uma carteira com Radar frente a um grupo de controle sem Radar:</p>
+          <table class="clean-table">
+            <thead>
+              <tr><th>Indicador</th><th>Como medir</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><strong>Taxa de "alerta útil"</strong> (principal)</td><td>Marcação rápida (<code>útil</code> / <code>ruído</code>) pelo gerente. Hipótese inicial a definir e calibrar com o Comercial.</td></tr>
+              <tr><td><strong>Tempo até o 1º contato</strong></td><td>Intervalo entre falha técnica crítica e primeira abordagem consultiva.</td></tr>
+              <tr><td><strong>Retenção vs. controle</strong></td><td>Estabilização de vendas e retenção em 14 dias frente ao grupo sem Radar.</td></tr>
+              <tr><td><strong>Tickets repetidos</strong></td><td>Queda na reincidência de chamados sobre o mesmo erro de integração.</td></tr>
+            </tbody>
+          </table>
+          <p class="subtext" style="margin:8px 0 0;"><strong>Critério de descarte:</strong> se a taxa de alertas úteis for baixa, o piloto mostra que os sinais atuais não bastam e a hipótese é ajustada ou descartada.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    YouShop Radar MCP · Protótipo do Desafio de Inovação (Programa de Estágio YouShop 2027) · Marcus Vinícius (Vini)
+  </footer>
+
+  <script src="./scoring.js"></script>
   <script>
-    let replayData = null;
-    let currentIndex = 0;
+    (function () {
+      "use strict";
 
-    function escapeHtml(text) {
-      const entities = {
-        "&": "\x26amp;",
-        "<": "\x26lt;",
-        ">": "\x26gt;",
-        '"': "\x26quot;",
-        "'": "\x26#39;",
+      let dashboardData = null;
+      let replayData = null;
+      let currentManagerId = "mgr_ana";
+      let selectedProducerId = null;
+      let currentSceneIdx = 0;
+
+      const LEVEL_LABELS = {
+        alto: "Risco alto",
+        medio: "Risco médio",
+        alerta_tecnico_precoce: "Alerta técnico precoce",
+        falso_alarme_tecnico: "Falso alarme técnico",
+        baixo_sazonalidade: "Baixo (sazonalidade)",
+        sem_baseline: "Sem baseline",
+        baixo: "Baixo / saudável",
       };
-      return String(text).replace(/[&<>"']/g, (ch) => entities[ch]);
-    }
 
-    function formatInline(text) {
-      let out = escapeHtml(text);
-      out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
-      out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-      out = out.replace(/\*([^*]+)\*/g, "<em>$1</em>");
-      return out;
-    }
-
-    function renderMarkdown(md) {
-      const lines = String(md || "").replace(/\r\n/g, "\n").split("\n");
-      const html = [];
-      let i = 0;
-
-      while (i < lines.length) {
-        const line = lines[i].trim();
-
-        if (!line) {
-          i++;
-          continue;
-        }
-
-        if (/^---+$/.test(line)) {
-          html.push("<hr />");
-          i++;
-          continue;
-        }
-
-        if (line.startsWith("### ")) {
-          html.push(`<h3>${formatInline(line.slice(4))}</h3>`);
-          i++;
-          continue;
-        }
-
-        if (line.startsWith("> ")) {
-          const quoteLines = [];
-          while (i < lines.length && lines[i].trim().startsWith("> ")) {
-            quoteLines.push(formatInline(lines[i].trim().slice(2)));
-            i++;
-          }
-          html.push(`<blockquote>${quoteLines.join("<br />")}</blockquote>`);
-          continue;
-        }
-
-        if (line.startsWith("|") && i + 1 < lines.length && /^\|[\s:-]+\|/.test(lines[i + 1].trim())) {
-          const headers = line.split("|").slice(1, -1).map(c => `<th>${formatInline(c.trim())}</th>`).join("");
-          i += 2;
-          const rows = [];
-          while (i < lines.length && lines[i].trim().startsWith("|")) {
-            const cells = lines[i].trim().split("|").slice(1, -1).map(c => `<td>${formatInline(c.trim())}</td>`).join("");
-            rows.push(`<tr>${cells}</tr>`);
-            i++;
-          }
-          html.push(`<div class="table-wrap"><table><thead><tr>${headers}</tr></thead><tbody>${rows.join("")}</tbody></table></div>`);
-          continue;
-        }
-
-        if (/^[-*]\s+/.test(line)) {
-          const items = [];
-          while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
-            items.push(`<li>${formatInline(lines[i].replace(/^\s*[-*]\s+/, ""))}</li>`);
-            i++;
-          }
-          html.push(`<ul>${items.join("")}</ul>`);
-          continue;
-        }
-
-        if (/^\d+\.\s+/.test(line)) {
-          const items = [];
-          while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
-            items.push(`<li>${formatInline(lines[i].replace(/^\s*\d+\.\s+/, ""))}</li>`);
-            i++;
-          }
-          html.push(`<ol>${items.join("")}</ol>`);
-          continue;
-        }
-
-        const para = [];
-        while (
-          i < lines.length &&
-          lines[i].trim() &&
-          !/^(---|### |> |\||\s*[-*]\s+|\s*\d+\.\s+)/.test(lines[i].trim())
-        ) {
-          para.push(formatInline(lines[i].trim()));
-          i++;
-        }
-        html.push(`<p>${para.join("<br />")}</p>`);
+      function esc(str) {
+        return String(str ?? "")
+          .replace(/&/g, "&" + "amp;")
+          .replace(/</g, "&" + "lt;")
+          .replace(/>/g, "&" + "gt;")
+          .replace(/"/g, "&" + "quot;");
       }
 
-      return html.join("\n");
-    }
-
-    function renderGroundingBadge(grounding) {
-      if (!grounding) return "";
-      if (grounding.checked_count === 0) {
-        return `<div class="grounding-bar ok">✓ Auditoria numérica automática: nenhuma métrica numérica citada nesta cena (resposta compatível com os payloads MCP).</div>`;
+      function formatBrl(val) {
+        return Number(val || 0).toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        });
       }
-      if (grounding.verified) {
-        return `<div class="grounding-bar ok">✓ Auditoria numérica automática: ${escapeHtml(grounding.checked_count)} métrica(s) citada(s) verificada(s) diretamente nos payloads MCP.</div>`;
+
+      function badgeHtml(level) {
+        const label = LEVEL_LABELS[level] || level;
+        return `<span class="badge lvl-${esc(level)}">${esc(label)}</span>`;
       }
-      return `<div class="grounding-bar warn">⚠ Auditoria numérica: valores sem correspondência direta nos payloads (${escapeHtml((grounding.ungrounded_numbers || []).join(", "))}).</div>`;
-    }
 
-    function renderSidebar() {
-      const list = document.getElementById("scene-list");
-      list.innerHTML = replayData.steps
-        .map((step, idx) => `
-          <button class="scene-btn ${idx === currentIndex ? "active" : ""}" data-index="${idx}">
-            <span class="scene-title">${escapeHtml(step.title)}</span>
-            <span class="scene-tag">${escapeHtml(step.badge)}</span>
-          </button>
-        `)
-        .join("");
-
-      list.querySelectorAll(".scene-btn").forEach((btn) => {
+      // Tabs
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
-          currentIndex = Number(btn.dataset.index);
-          renderAll();
+          document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+          document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
+          btn.classList.add("active");
+          document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
         });
       });
 
-      const meta = replayData.metadata;
-      document.getElementById("meta-box").innerHTML = `
-        <div><strong>Sessão:</strong> <code>${escapeHtml(meta.session_manager_id)}</code></div>
-        <div><strong>Modelo:</strong> <code>${escapeHtml(meta.llm_model)}</code></div>
-        <div><strong>Gravado em:</strong> <code>${escapeHtml(meta.recorded_at_utc)}</code></div>
-        <div><strong>Tools:</strong> <code>${escapeHtml(meta.mcp_primitives.tools.join(", "))}</code></div>
-      `;
-    }
+      // Simple Markdown renderer (tables, headings, lists, bold, code)
+      function renderMarkdown(md) {
+        const lines = String(md || "").split(/\r?\n/);
+        let html = "";
+        let i = 0;
+        const inline = (txt) =>
+          esc(txt)
+            .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+            .replace(/`([^`]+)`/g, "<code>$1</code>");
 
-    function renderStage() {
-      const step = replayData.steps[currentIndex];
-      const meta = replayData.metadata;
-      const stage = document.getElementById("stage");
-
-      const toolPillsHtml = (step.mcp_tool_calls || [])
-        .map((call) => {
-          const isDenied = call.result && call.result.error === "PRODUCER_UNAVAILABLE";
-          const args = JSON.stringify(call.arguments || {});
-          return `<span class="tool-pill ${isDenied ? "denied" : ""}">→ ${escapeHtml(call.tool)}(${escapeHtml(args)})${isDenied ? " [INDISPONÍVEL / BLOQUEADO]" : ""}</span>`;
-        })
-        .join("");
-
-      const promptBlockHtml = step.mcp_prompt_used
-        ? `
-          <div class="xray-block">
-            <div class="xray-title">MCP Prompt disparado: ${escapeHtml(step.mcp_prompt_used.name)}</div>
-            <pre>${escapeHtml(JSON.stringify(step.mcp_prompt_used, null, 2))}</pre>
-          </div>
-        `
-        : "";
-
-      const toolBlocksHtml = (step.mcp_tool_calls || [])
-        .map((call, idx) => `
-          <div class="xray-block">
-            <div class="xray-title">Chamada #${idx + 1}: ${escapeHtml(call.tool)}(${escapeHtml(JSON.stringify(call.arguments || {}))})</div>
-            <pre>${escapeHtml(JSON.stringify(call.result, null, 2))}</pre>
-          </div>
-        `)
-        .join("");
-
-      const groundingBlockHtml = step.grounding_check
-        ? `
-          <div class="xray-block">
-            <div class="xray-title">Auditoria numérica (verificador automático)</div>
-            <pre>${escapeHtml(JSON.stringify(step.grounding_check, null, 2))}</pre>
-          </div>
-        `
-        : "";
-
-      stage.innerHTML = `
-        <div class="stage-header">
-          <div>
-            <h2>${escapeHtml(step.title)}</h2>
-          </div>
-          <div class="nav-controls">
-            <button class="btn" id="prev-btn" ${currentIndex === 0 ? "disabled" : ""}>← Anterior</button>
-            <button class="btn primary" id="next-btn" ${currentIndex === replayData.steps.length - 1 ? "disabled" : ""}>Próxima cena →</button>
-          </div>
-        </div>
-
-        <div class="chat-bubble bubble-user">
-          <div class="bubble-label">Gerente de Contas (${escapeHtml(meta.session_manager_id)})</div>
-          <div>${escapeHtml(step.user_message)}</div>
-        </div>
-
-        <div class="tool-pills">
-          ${step.mcp_prompt_used ? `<span class="tool-pill">★ MCP Prompt: ${escapeHtml(step.mcp_prompt_used.name)}</span>` : ""}
-          ${toolPillsHtml}
-        </div>
-
-        <div class="chat-bubble bubble-assistant">
-          <div class="bubble-label">YouShop Radar (${escapeHtml(meta.llm_model)} + MCP)</div>
-          <div class="md-content">${renderMarkdown(step.assistant_response)}</div>
-          ${renderGroundingBadge(step.grounding_check)}
-        </div>
-
-        <div class="xray-wrapper">
-          <button class="xray-toggle" id="xray-toggle" type="button">
-            <span>🔍 Raio-X MCP — Inspecionar payloads JSON brutos e auditoria numérica</span>
-            <span id="xray-arrow">Abrir ▾</span>
-          </button>
-          <div class="xray-body" id="xray-body">
-            ${promptBlockHtml}
-            ${toolBlocksHtml || "<p>Nenhuma tool chamada nesta cena.</p>"}
-            ${groundingBlockHtml}
-          </div>
-        </div>
-      `;
-
-      document.getElementById("prev-btn").addEventListener("click", () => {
-        if (currentIndex > 0) {
-          currentIndex--;
-          renderAll();
+        while (i < lines.length) {
+          const line = lines[i].trim();
+          if (!line) { i++; continue; }
+          if (line.startsWith("|") && i + 1 < lines.length && /^\|[\s:|-]+\|$/.test(lines[i + 1].trim())) {
+            const headers = line.split("|").slice(1, -1).map((c) => c.trim());
+            html += '<table class="clean-table"><thead><tr>' + headers.map((h) => `<th>${inline(h)}</th>`).join("") + "</tr></thead><tbody>";
+            i += 2;
+            while (i < lines.length && lines[i].trim().startsWith("|")) {
+              const cells = lines[i].trim().split("|").slice(1, -1).map((c) => c.trim());
+              html += "<tr>" + cells.map((c) => `<td>${inline(c)}</td>`).join("") + "</tr>";
+              i++;
+            }
+            html += "</tbody></table>";
+            continue;
+          }
+          if (line.startsWith("### ")) { html += `<h4>${inline(line.slice(4))}</h4>`; i++; continue; }
+          if (line.startsWith("## ")) { html += `<h3>${inline(line.slice(3))}</h3>`; i++; continue; }
+          if (line === "---") { html += "<hr style='border:none;border-top:1px solid var(--border);margin:10px 0;' />"; i++; continue; }
+          if (line.startsWith("- ") || line.startsWith("* ")) {
+            html += "<ul style='margin:6px 0;padding-left:20px;'>";
+            while (i < lines.length && (lines[i].trim().startsWith("- ") || lines[i].trim().startsWith("* "))) {
+              html += `<li>${inline(lines[i].trim().slice(2))}</li>`;
+              i++;
+            }
+            html += "</ul>";
+            continue;
+          }
+          html += `<p style="margin:6px 0;">${inline(line)}</p>`;
+          i++;
         }
-      });
-
-      document.getElementById("next-btn").addEventListener("click", () => {
-        if (currentIndex < replayData.steps.length - 1) {
-          currentIndex++;
-          renderAll();
-        }
-      });
-
-      const xrayToggle = document.getElementById("xray-toggle");
-      const xrayBody = document.getElementById("xray-body");
-      const xrayArrow = document.getElementById("xray-arrow");
-
-      if (step.id === "recusa_carteira") {
-        xrayBody.classList.add("open");
-        xrayArrow.textContent = "Fechar ▴";
+        return html;
       }
 
-      xrayToggle.addEventListener("click", () => {
-        const isOpen = xrayBody.classList.toggle("open");
-        xrayArrow.textContent = isOpen ? "Fechar ▴" : "Abrir ▾";
-      });
-    }
+      // SVG Weekly Evolution Chart
+      function renderWeeklySvg(weeks) {
+        if (!weeks || !weeks.length) return "<p class='subtext'>Sem histórico semanal.</p>";
+        const w = 520, h = 200;
+        const padL = 42, padR = 46, padT = 22, padB = 38;
+        const innerW = w - padL - padR;
+        const innerH = h - padT - padB;
+        const maxOrders = Math.max(10, ...weeks.map((x) => x.orders_count)) * 1.15;
+        const maxPct = Math.max(40, ...weeks.map((x) => x.webhook_failure_rate_pct));
+        const slot = innerW / weeks.length;
+        const barW = Math.min(48, slot * 0.48);
 
-    function renderAll() {
-      renderSidebar();
-      renderStage();
-    }
+        let bars = "";
+        let points = [];
+        let labels = "";
 
-    async function init() {
-      try {
-        const res = await fetch("./replay_data.json");
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        replayData = await res.json();
-        document.getElementById("disclaimer-bar").textContent =
-          `⚠️ ${replayData.metadata.disclaimer} Nenhuma chave de API fica exposta nesta página.`;
-        renderAll();
-      } catch (err) {
-        document.getElementById("stage").innerHTML = `
-          <div class="error-box">
-            <strong>Não foi possível carregar <code>replay_data.json</code>.</strong><br />
-            Se você abriu este arquivo direto pelo disco (<code>file://</code>), rode um servidor local com:<br />
-            <code>uv run python -m http.server 8000 --bind 127.0.0.1 --directory docs</code> e acesse <code>http://127.0.0.1:8000</code>.
-          </div>
+        weeks.forEach((wk, idx) => {
+          const cx = padL + slot * idx + slot / 2;
+          const barH = (wk.orders_count / maxOrders) * innerH;
+          const barY = padT + innerH - barH;
+          const isLast = idx === weeks.length - 1;
+          const barFill = isLast && wk.webhook_failure_rate_pct >= 15 ? "#FCA5A5" : "#BFDBFE";
+          const barStroke = isLast && wk.webhook_failure_rate_pct >= 15 ? "#B91C1C" : "#1D4ED8";
+
+          bars += `<rect x="${(cx - barW / 2).toFixed(1)}" y="${barY.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="5" fill="${barFill}" stroke="${barStroke}" stroke-width="1.5" />`;
+          bars += `<text x="${cx.toFixed(1)}" y="${(barY - 5).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="700" fill="#0B2545">${wk.orders_count}</text>`;
+
+          const py = padT + innerH - (wk.webhook_failure_rate_pct / maxPct) * innerH;
+          points.push({ x: cx, y: py, pct: wk.webhook_failure_rate_pct });
+
+          const shortWeek = wk.week_range.split(" a ").map((d) => d.slice(5).split("-").reverse().join("/")).join("–");
+          labels += `<text x="${cx.toFixed(1)}" y="${h - 14}" text-anchor="middle" font-size="10" fill="#5A6B84">${esc(shortWeek)}</text>`;
+        });
+
+        const polyStr = points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+        const dots = points
+          .map(
+            (p) =>
+              `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="#B91C1C" stroke="#fff" stroke-width="1.5" />` +
+              `<text x="${p.x.toFixed(1)}" y="${(p.y - 9).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="700" fill="#B91C1C">${p.pct.toFixed(1)}%</text>`
+          )
+          .join("");
+
+        return `
+          <svg viewBox="0 0 ${w} ${h}" width="100%" role="img" aria-label="Evolução semanal de pedidos e falhas de webhook">
+            <line x1="${padL}" y1="${padT + innerH}" x2="${w - padR}" y2="${padT + innerH}" stroke="#CBD5E1" stroke-width="1.2" />
+            <text x="6" y="${padT + 8}" font-size="10" fill="#1D4ED8" font-weight="700">Pedidos</text>
+            <text x="${w - 6}" y="${padT + 8}" text-anchor="end" font-size="10" fill="#B91C1C" font-weight="700">WH %</text>
+            ${bars}
+            <polyline fill="none" stroke="#B91C1C" stroke-width="2.2" points="${polyStr}" />
+            ${dots}
+            ${labels}
+          </svg>
         `;
       }
-    }
 
-    init();
+      // Render Panel 1
+      function renderPortfolio() {
+        const portfolio = dashboardData.portfolios[currentManagerId];
+        const producers = portfolio.summary.producers;
+        const listEl = document.getElementById("portfolioList");
+
+        if (!selectedProducerId || !portfolio.details[selectedProducerId]) {
+          selectedProducerId = producers[0] ? producers[0].producer_id : null;
+        }
+
+        listEl.innerHTML = producers
+          .map((p) => {
+            const sel = p.producer_id === selectedProducerId ? "selected" : "";
+            return `
+              <div class="producer-row ${sel}" data-pid="${esc(p.producer_id)}">
+                <div>
+                  <div class="prod-title">${esc(p.producer_name)} <span style="font-weight:400;font-size:0.8rem;color:var(--muted);">(${esc(p.category)})</span></div>
+                  <div class="prod-reason">${esc(p.main_signal)}</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                  ${badgeHtml(p.risk_level)}
+                  <div class="score-pill">${p.risk_score}</div>
+                </div>
+              </div>
+            `;
+          })
+          .join("");
+
+        listEl.querySelectorAll(".producer-row").forEach((row) => {
+          row.addEventListener("click", () => {
+            selectedProducerId = row.dataset.pid;
+            renderPortfolio();
+            renderDetail();
+          });
+        });
+
+        // Cross-portfolio buttons
+        const otherProducers = dashboardData.directory.filter((d) => d.owner_manager_id !== currentManagerId);
+        const crossEl = document.getElementById("crossPortfolioButtons");
+        crossEl.innerHTML = otherProducers
+          .map((d) => `<button class="btn-sm danger" data-try="${esc(d.producer_name)}">Tentar abrir: ${esc(d.producer_name)}</button>`)
+          .join("");
+
+        crossEl.querySelectorAll("button").forEach((btn) => {
+          btn.addEventListener("click", () => attemptLookup(btn.dataset.try));
+        });
+
+        document.getElementById("refusalBox").style.display = "none";
+        renderDetail();
+      }
+
+      function attemptLookup(refName) {
+        const cleaned = String(refName || "").trim();
+        const box = document.getElementById("refusalBox");
+        if (!cleaned) return;
+        const portfolio = dashboardData.portfolios[currentManagerId];
+        const found = portfolio.summary.producers.find(
+          (p) => p.producer_id.toLowerCase() === cleaned.toLowerCase() || p.producer_name.toLowerCase() === cleaned.toLowerCase()
+        );
+        if (found) {
+          selectedProducerId = found.producer_id;
+          box.style.display = "none";
+          renderPortfolio();
+          return;
+        }
+        const err = dashboardData.metadata.unavailable_error;
+        box.innerHTML = `<strong>Acesso bloqueado (sessão ${esc(currentManagerId)}):</strong> <code>${esc(err.error)}</code> — ${esc(err.message)}<br><span style="font-size:0.8rem;color:#7F1D1D;">Resposta idêntica para carteira alheia e produtor inexistente (anti-enumeração).</span>`;
+        box.style.display = "block";
+      }
+
+      function renderDetail() {
+        const portfolio = dashboardData.portfolios[currentManagerId];
+        const detail = portfolio.details[selectedProducerId];
+        if (!detail) return;
+        const sig = detail.signals;
+        const s7 = sig.signals_last_7d;
+        const weeks = detail.history.weekly_evolution;
+
+        document.getElementById("detailName").textContent = sig.producer_name;
+        document.getElementById("detailMeta").textContent = `Categoria: ${sig.category} · ${sig.active_creators_count} creators ativos · Score determinístico: ${sig.risk_score}/100`;
+        document.getElementById("detailLevelBadge").innerHTML = badgeHtml(sig.risk_level);
+
+        const salesText = s7.sales_variation_vs_baseline_pct === null
+          ? "Sem baseline"
+          : `${s7.sales_variation_vs_baseline_pct > 0 ? "+" : ""}${s7.sales_variation_vs_baseline_pct.toFixed(1)}%`;
+
+        document.getElementById("detailMetrics").innerHTML = `
+          <div class="metric-box">
+            <div class="k">Falha de Webhook (7d)</div>
+            <div class="v">${s7.webhook_failure_rate_pct.toFixed(1)}%</div>
+            <div class="s">${s7.webhook_failed_events}/${s7.webhook_total_events} · erro: <code>${esc(s7.top_webhook_error)}</code></div>
+          </div>
+          <div class="metric-box">
+            <div class="k">Vendas vs. Baseline (21d)</div>
+            <div class="v">${esc(salesText)}</div>
+            <div class="s">${s7.recent_orders_count} pedidos pagos nos últimos 7d</div>
+          </div>
+          <div class="metric-box">
+            <div class="k">Tickets Críticos Abertos</div>
+            <div class="v">${s7.open_critical_tickets}</div>
+            <div class="s">Total abertos (qualquer idade): ${s7.open_tickets_total}</div>
+          </div>
+          <div class="metric-box">
+            <div class="k">Creators & Sazonalidade</div>
+            <div class="v">${sig.active_creators_count} creators</div>
+            <div class="s">Flag sazonal simulada: ${s7.known_seasonal_pattern ? "sim" : "não"}</div>
+          </div>
+        `;
+
+        document.getElementById("weeklySvgContainer").innerHTML = renderWeeklySvg(weeks);
+        document.getElementById("weeklyTableContainer").innerHTML = `
+          <table class="clean-table">
+            <thead><tr><th>Semana</th><th>Pedidos</th><th>Receita</th><th>Webhook %</th><th>Tickets</th></tr></thead>
+            <tbody>
+              ${weeks.map((wk) => `<tr><td>${esc(wk.week_range)}</td><td>${wk.orders_count}</td><td>${formatBrl(wk.revenue_brl)}</td><td>${wk.webhook_failure_rate_pct.toFixed(1)}%</td><td>${wk.tickets_opened}</td></tr>`).join("")}
+            </tbody>
+          </table>
+        `;
+      }
+
+      // Simulator + Live Parity Check
+      function runParityCheckInBrowser() {
+        const badge = document.getElementById("parityBadge");
+        const cases = dashboardData.parity_cases || [];
+        let passed = 0;
+        for (const c of cases) {
+          const out = window.RadarScoring.evaluateRisk(c, dashboardData.scoring_config);
+          if (out.risk_score === c.expected_risk_score && out.risk_level === c.expected_risk_level) {
+            passed++;
+          }
+        }
+        if (passed === cases.length) {
+          badge.className = "parity-badge";
+          badge.textContent = `✓ Paridade Python ↔ JS verificada: ${passed}/${cases.length} casos`;
+        } else {
+          badge.className = "parity-badge fail";
+          badge.textContent = `✗ Divergência Python ↔ JS: ${passed}/${cases.length}`;
+        }
+      }
+
+      function updateSimulator() {
+        const whRate = parseFloat(document.getElementById("simWebhookRate").value);
+        const errType = document.getElementById("simErrorType").value;
+        const noBaseline = document.getElementById("simNoBaseline").checked;
+        const salesSlider = document.getElementById("simSalesVar");
+        salesSlider.disabled = noBaseline;
+        const salesVar = noBaseline ? null : parseFloat(salesSlider.value);
+        const tickets = parseInt(document.getElementById("simTickets").value, 10);
+        const seasonal = document.getElementById("simSeasonal").checked;
+
+        document.getElementById("simWebhookRateVal").textContent = `${whRate.toFixed(1)}%`;
+        document.getElementById("simSalesVarVal").textContent = noBaseline ? "Sem baseline" : `${salesVar > 0 ? "+" : ""}${salesVar.toFixed(1)}%`;
+        document.getElementById("simTicketsVal").textContent = String(tickets);
+
+        let errorsMap = {};
+        if (whRate > 0) {
+          if (errType === "misto") {
+            errorsMap = { endpoint_analytics_offline: 27, assinatura_invalida: 20 };
+          } else {
+            errorsMap = { [errType]: Math.max(1, Math.round(whRate)) };
+          }
+        }
+
+        const res = window.RadarScoring.evaluateRisk(
+          {
+            webhook_failure_rate_pct: whRate,
+            errors_by_category: errorsMap,
+            sales_variation_pct: salesVar,
+            open_critical_tickets: tickets,
+            seasonal_pattern: seasonal,
+          },
+          dashboardData.scoring_config
+        );
+
+        document.getElementById("simScoreOut").textContent = `${res.risk_score}`;
+        document.getElementById("simLevelOut").innerHTML = badgeHtml(res.risk_level);
+        document.getElementById("simReasonOut").textContent = res.rule_reason;
+        document.getElementById("subWh").textContent = `${res.subscores.webhook}/100`;
+        document.getElementById("subSales").textContent = `${res.subscores.sales}/100`;
+        document.getElementById("subTkt").textContent = `${res.subscores.tickets}/100`;
+      }
+
+      function applyPreset(presetId) {
+        const c = (dashboardData.parity_cases || []).find((x) => x.id === presetId);
+        if (!c) return;
+        document.getElementById("simWebhookRate").value = c.webhook_failure_rate_pct;
+        const keys = Object.keys(c.errors_by_category || {});
+        if (keys.length > 1) {
+          document.getElementById("simErrorType").value = "misto";
+        } else if (keys.length === 1) {
+          document.getElementById("simErrorType").value = keys[0];
+        } else {
+          document.getElementById("simErrorType").value = "assinatura_invalida";
+        }
+        const noBase = c.sales_variation_pct === null;
+        document.getElementById("simNoBaseline").checked = noBase;
+        if (!noBase) document.getElementById("simSalesVar").value = c.sales_variation_pct;
+        document.getElementById("simTickets").value = c.open_critical_tickets;
+        document.getElementById("simSeasonal").checked = Boolean(c.seasonal_pattern);
+        updateSimulator();
+      }
+
+      // Replay Renderer
+      function renderReplay() {
+        if (!replayData) return;
+        const meta = replayData.metadata || {};
+        document.getElementById("replayMetaText").textContent =
+          `Sessão: ${meta.session_manager_id} · Modelo: ${meta.llm_model} · Gravado em: ${meta.recorded_at_utc} · ${meta.disclaimer}`;
+
+        const steps = replayData.steps || [];
+        const btnWrap = document.getElementById("sceneButtons");
+        btnWrap.innerHTML = steps
+          .map((s, idx) => `<button class="scene-btn ${idx === currentSceneIdx ? "active" : ""}" data-sidx="${idx}">${esc(s.title)}</button>`)
+          .join("");
+
+        btnWrap.querySelectorAll("button").forEach((b) => {
+          b.addEventListener("click", () => {
+            currentSceneIdx = parseInt(b.dataset.sidx, 10);
+            renderReplay();
+          });
+        });
+
+        const step = steps[currentSceneIdx];
+        if (!step) return;
+        const gc = step.grounding_check || {};
+        const pc = step.policy_check || {};
+        const ok = gc.verified !== false && pc.passed !== false;
+        const auditText = ok
+          ? `✓ Auditoria tipada + políticas aprovada (${gc.checked_count ?? 0} métrica(s) conferida(s) nos payloads MCP)`
+          : "⚠ Aviso de auditoria";
+
+        const xrayPayload = {
+          mcp_prompt_used: step.mcp_prompt_used,
+          mcp_tool_calls: step.mcp_tool_calls,
+          grounding_check: gc,
+          policy_check: pc,
+        };
+
+        document.getElementById("sceneContainer").innerHTML = `
+          <div class="chat-user">
+            <div style="font-size:0.78rem;font-weight:700;color:var(--blue);text-transform:uppercase;margin-bottom:4px;">Gerente (${esc(meta.session_manager_id)}) · ${esc(step.badge)}</div>
+            <div>${esc(step.user_message)}</div>
+          </div>
+          <div class="chat-ai">
+            <div class="audit-pill">${esc(auditText)}</div>
+            <div>${renderMarkdown(step.assistant_response)}</div>
+          </div>
+          <details class="xray">
+            <summary>Raio-X MCP — Inspecionar chamadas de Tools, Prompt e JSON auditado (${(step.mcp_tool_calls || []).length} chamada(s))</summary>
+            <pre class="json-pre">${esc(JSON.stringify(xrayPayload, null, 2))}</pre>
+          </details>
+        `;
+      }
+
+      async function init() {
+        const [dashRes, repRes] = await Promise.all([
+          fetch("./dashboard_data.json"),
+          fetch("./replay_data.json"),
+        ]);
+        dashboardData = await dashRes.json();
+        replayData = await repRes.json();
+
+        document.getElementById("refDateLabel").textContent = dashboardData.metadata.reference_date;
+
+        const mgrSelect = document.getElementById("managerSelect");
+        mgrSelect.innerHTML = dashboardData.managers
+          .map((m) => `<option value="${esc(m.id)}">${esc(m.name)} (${esc(m.id)}) — ${esc(m.role)}</option>`)
+          .join("");
+        mgrSelect.value = currentManagerId;
+        mgrSelect.addEventListener("change", () => {
+          currentManagerId = mgrSelect.value;
+          selectedProducerId = null;
+          renderPortfolio();
+        });
+
+        document.getElementById("customLookupBtn").addEventListener("click", () => {
+          attemptLookup(document.getElementById("customLookupInput").value);
+        });
+        document.getElementById("customLookupInput").addEventListener("keydown", (e) => {
+          if (e.key === "Enter") attemptLookup(e.target.value);
+        });
+
+        ["simWebhookRate", "simErrorType", "simSalesVar", "simNoBaseline", "simTickets", "simSeasonal"].forEach((id) => {
+          document.getElementById(id).addEventListener("input", updateSimulator);
+          document.getElementById(id).addEventListener("change", updateSimulator);
+        });
+        document.querySelectorAll("[data-preset]").forEach((btn) => {
+          btn.addEventListener("click", () => applyPreset(btn.dataset.preset));
+        });
+
+        renderPortfolio();
+        runParityCheckInBrowser();
+        updateSimulator();
+        renderReplay();
+      }
+
+      init().catch((err) => {
+        document.querySelector("main").innerHTML = `<div class="card"><h2>Erro ao carregar dados</h2><p>${esc(err.message)}</p><p class="subtext">Abra via servidor HTTP local (<code>uv run python -m http.server 8000 --directory docs</code>) ou pelo GitHub Pages.</p></div>`;
+      });
+    })();
   </script>
 </body>
 </html>
