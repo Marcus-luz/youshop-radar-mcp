@@ -6,9 +6,11 @@ import os
 from datetime import date
 from pathlib import Path
 
-# Semente e data de referência fixas para resultados reproduzíveis
+# Semente, data de referência e janelas fixas para resultados reproduzíveis
 SEED = 42
 REFERENCE_DATE = date(2026, 11, 19)
+RECENT_WINDOW_DAYS = 7
+BASELINE_WINDOW_DAYS = 21
 
 # Caminho padrão do banco SQLite local
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -32,6 +34,7 @@ SEASONAL_WEBHOOK_MAX_PCT = 5.0
 
 FALSE_ALARM_MAX_SCORE = 45
 EARLY_TECH_ALERT_MIN_SCORE = 55
+EARLY_TECH_IMPACT_BONUS_CAP = 15
 SEASONAL_DIP_MAX_SCORE = 35
 RISK_HIGH_THRESHOLD = 70
 RISK_MEDIUM_THRESHOLD = 50

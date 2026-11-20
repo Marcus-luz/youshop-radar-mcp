@@ -91,9 +91,10 @@ def seed_database(db_path: Path | str = DEFAULT_DB_PATH) -> Path:
         conn.executemany("INSERT INTO managers (id, name, email) VALUES (?, ?, ?)", managers)
 
         producers = [
-            # Carteira da Ana (6 produtores)
+            # Carteira da Ana (7 produtores)
             ("prod_aurora", "mgr_ana", "Aurora Cosméticos", "cosméticos", 12, 0),
             ("prod_nutrimax", "mgr_ana", "NutriMax Suplementos", "suplementos", 7, 0),
+            ("prod_vitapulse", "mgr_ana", "VitaPulse Saúde", "saúde", 8, 0),
             ("prod_codemaster", "mgr_ana", "CodeMaster Cursos", "cursos", 9, 0),
             ("prod_gestaopro", "mgr_ana", "GestãoPro Software", "software", 4, 1),
             ("prod_essencia", "mgr_ana", "Essência Natural", "cosméticos", 6, 0),
@@ -130,7 +131,9 @@ def seed_database(db_path: Path | str = DEFAULT_DB_PATH) -> Path:
         # Cenário 1: Risco alto (lançamento + 12 creators + webhooks 401 + queda vendas)
         _insert_orders(conn, faker, "prod_aurora", 20, 12, 149.90)
         _insert_webhooks(conn, "prod_aurora", 20, 9, "assinatura_invalida", 401, fail_days=5)
-        _insert_tickets(conn, "prod_aurora", [(4, "erro_integracao", "open"), (2, "erro_integracao", "open")])
+        _insert_tickets(
+            conn, "prod_aurora", [(4, "erro_integracao", "open"), (2, "erro_integracao", "open")]
+        )
 
         # Cenário 2: Risco alto (timeout Pix + queda vendas + 3 tickets de checkout)
         _insert_orders(conn, faker, "prod_nutrimax", 15, 10, 189.00)
@@ -138,20 +141,31 @@ def seed_database(db_path: Path | str = DEFAULT_DB_PATH) -> Path:
         _insert_tickets(
             conn,
             "prod_nutrimax",
-            [(5, "falha_checkout", "open"), (3, "falha_checkout", "open"), (1, "falha_checkout", "open")],
+            [
+                (5, "falha_checkout", "open"),
+                (3, "falha_checkout", "open"),
+                (1, "falha_checkout", "open"),
+            ],
         )
 
-        # Cenário 3: Falso alarme técnico (muitos erros de analytics, vendas estáveis)
+        # Cenário 3: Alerta técnico precoce (erro crítico 401 antes das vendas caírem)
+        _insert_orders(conn, faker, "prod_vitapulse", 12, 12, 140.00)
+        _insert_webhooks(conn, "prod_vitapulse", 15, 5, "assinatura_invalida", 401, fail_days=5)
+        _insert_tickets(conn, "prod_vitapulse", [])
+
+        # Cenário 4: Falso alarme técnico (apenas endpoint auxiliar de analytics, vendas estáveis)
         _insert_orders(conn, faker, "prod_codemaster", 14, 15, 297.00)
-        _insert_webhooks(conn, "prod_codemaster", 15, 5, "endpoint_analytics_offline", 500, fail_days=6)
+        _insert_webhooks(
+            conn, "prod_codemaster", 15, 5, "endpoint_analytics_offline", 500, fail_days=6
+        )
         _insert_tickets(conn, "prod_codemaster", [])
 
-        # Cenário 4: Queda por sazonalidade (sem erro técnico e sem ticket)
+        # Cenário 5: Queda por sazonalidade simulada (sem erro técnico e sem ticket)
         _insert_orders(conn, faker, "prod_gestaopro", 10, 8, 199.00)
         _insert_webhooks(conn, "prod_gestaopro", 10, 0, "ok", fail_days=0)
         _insert_tickets(conn, "prod_gestaopro", [])
 
-        # Cenários 5 e 6: Saudáveis na carteira da Ana
+        # Cenários 6 e 7: Saudáveis na carteira da Ana
         _insert_orders(conn, faker, "prod_essencia", 12, 13, 119.90)
         _insert_webhooks(conn, "prod_essencia", 15, 0, "ok", fail_days=0)
         _insert_tickets(conn, "prod_essencia", [])
@@ -160,10 +174,12 @@ def seed_database(db_path: Path | str = DEFAULT_DB_PATH) -> Path:
         _insert_webhooks(conn, "prod_fitpulse", 12, 0, "ok", fail_days=0)
         _insert_tickets(conn, "prod_fitpulse", [(2, "duvida_relatorio", "open")])
 
-        # Cenários 7 e 8: Carteira do Carlos (acesso bloqueado para Ana)
+        # Cenários 8 e 9: Carteira do Carlos (acesso bloqueado para Ana)
         _insert_orders(conn, faker, "prod_bella", 18, 10, 175.00)
         _insert_webhooks(conn, "prod_bella", 18, 8, "assinatura_invalida", 401, fail_days=6)
-        _insert_tickets(conn, "prod_bella", [(3, "erro_integracao", "open"), (1, "falha_checkout", "open")])
+        _insert_tickets(
+            conn, "prod_bella", [(3, "erro_integracao", "open"), (1, "falha_checkout", "open")]
+        )
 
         _insert_orders(conn, faker, "prod_academy", 10, 11, 349.00)
         _insert_webhooks(conn, "prod_academy", 10, 0, "ok", fail_days=0)

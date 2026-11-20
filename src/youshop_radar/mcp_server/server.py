@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import sys
 from typing import Any
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
-from youshop_radar.config import DEFAULT_MIN_RISK_SCORE, get_session_manager_id
+from youshop_radar.config import DEFAULT_MIN_RISK_SCORE, get_db_path, get_session_manager_id
 from youshop_radar.data.repository import RadarRepository
 from youshop_radar.domain.security import (
     UNAVAILABLE_ERROR_CODE,
@@ -23,7 +25,7 @@ from youshop_radar.mcp_server.playbooks import (
     build_outreach_prompt,
 )
 
-load_dotenv()
+load_dotenv(find_dotenv(usecwd=True))
 
 mcp = MCPServer(
     "YouShop Radar",
@@ -46,12 +48,26 @@ def get_repository() -> RadarRepository:
     return _repository
 
 
-def _unavailable_response(producer_ref: str) -> dict[str, Any]:
+def _unavailable_response() -> dict[str, Any]:
+    """Resposta uniforme anti-enumeração (nunca ecoa texto não confiável de entrada)."""
     return {
         "error": UNAVAILABLE_ERROR_CODE,
         "message": UNAVAILABLE_ERROR_MESSAGE,
-        "producer_ref": producer_ref,
     }
+
+
+def _require_session_and_repo() -> tuple[str, RadarRepository]:
+    try:
+        session_manager_id = get_session_manager_id()
+        repo = get_repository()
+        if not repo.db_path.exists():
+            raise FileNotFoundError(
+                f"Banco SQLite não encontrado em '{repo.db_path}'. "
+                "Execute 'uv run python -m youshop_radar.data.seed' para gerar a base simulada."
+            )
+        return session_manager_id, repo
+    except (RuntimeError, FileNotFoundError) as exc:
+        raise ToolError(str(exc)) from None
 
 
 @mcp.tool()
@@ -61,22 +77,27 @@ def list_at_risk_producers(min_score: int = DEFAULT_MIN_RISK_SCORE) -> dict[str,
     Use o padrão min_score=50 para focar em produtores que exigem atenção ou alerta técnico
     precoce; use min_score=0 apenas quando o gerente pedir a carteira completa. Somente leitura.
     """
-    session_manager_id = get_session_manager_id()
-    return list_at_risk_for_session(get_repository(), session_manager_id, min_score=min_score)
+    session_manager_id, repo = _require_session_and_repo()
+    try:
+        return list_at_risk_for_session(repo, session_manager_id, min_score=min_score)
+    except (RuntimeError, FileNotFoundError) as exc:
+        raise ToolError(str(exc)) from None
 
 
 @mcp.tool()
 def get_producer_signals(producer_ref: str) -> dict[str, Any]:
     """Detalha os sinais de um produtor (por ID ou nome) da carteira autenticada.
 
-    Retorna falhas de webhook (7d), variação de vendas vs. baseline (21d), tickets abertos por
+    Retorna falhas de webhook, variação de vendas vs. histórico anterior, tickets abertos por
     categoria (qualquer idade) e número de creators ativos. Bloqueia outras carteiras.
     """
-    session_manager_id = get_session_manager_id()
+    session_manager_id, repo = _require_session_and_repo()
     try:
-        return get_signals_for_session(get_repository(), session_manager_id, producer_ref)
+        return get_signals_for_session(repo, session_manager_id, producer_ref)
     except ProducerUnavailableError:
-        return _unavailable_response(producer_ref)
+        return _unavailable_response()
+    except (RuntimeError, FileNotFoundError) as exc:
+        raise ToolError(str(exc)) from None
 
 
 @mcp.tool()
@@ -86,13 +107,13 @@ def get_signal_history(producer_ref: str, weeks: int = 4) -> dict[str, Any]:
     Útil para descobrir desde quando um sinal começou a piorar ou confirmar estabilidade.
     Bloqueia acesso a produtores de outras carteiras. Somente leitura.
     """
-    session_manager_id = get_session_manager_id()
+    session_manager_id, repo = _require_session_and_repo()
     try:
-        return get_history_for_session(
-            get_repository(), session_manager_id, producer_ref, weeks=weeks
-        )
+        return get_history_for_session(repo, session_manager_id, producer_ref, weeks=weeks)
     except ProducerUnavailableError:
-        return _unavailable_response(producer_ref)
+        return _unavailable_response()
+    except (RuntimeError, FileNotFoundError) as exc:
+        raise ToolError(str(exc)) from None
 
 
 @mcp.resource(RETENTION_PLAYBOOK_URI)
@@ -108,6 +129,14 @@ def draft_retention_outreach(producer_ref: str, channel: str = "whatsapp") -> st
 
 
 def main() -> None:
+    db_path = get_db_path().resolve()
+    if not db_path.exists():
+        print(
+            f"Erro: banco SQLite não encontrado em '{db_path}'. "
+            "Execute 'uv run python -m youshop_radar.data.seed' antes de iniciar o servidor.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
     mcp.run(transport="stdio")
 
 

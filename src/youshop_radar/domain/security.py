@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from youshop_radar.config import (
     ALLOWED_TICKET_CATEGORIES,
     ALLOWED_WEBHOOK_ERRORS,
+    BASELINE_WINDOW_DAYS,
     DEFAULT_MIN_RISK_SCORE,
+    RECENT_WINDOW_DAYS,
     SALES_DROP_ALERT_THRESHOLD_PCT,
     WEBHOOK_ALERT_THRESHOLD_PCT,
 )
@@ -42,10 +45,13 @@ ALLOWED_DETAIL_FIELDS = frozenset(
 
 ALLOWED_SIGNAL_FIELDS = frozenset(
     {
+        "recent_window_days",
+        "baseline_window_days",
         "webhook_failure_rate_pct",
         "webhook_failed_events",
         "webhook_total_events",
         "top_webhook_error",
+        "webhook_errors_by_category",
         "sales_variation_vs_baseline_pct",
         "baseline_status",
         "recent_orders_count",
@@ -69,6 +75,8 @@ ALLOWED_HISTORY_FIELDS = frozenset(
 UNAVAILABLE_ERROR_CODE = "PRODUCER_UNAVAILABLE"
 UNAVAILABLE_ERROR_MESSAGE = "Produtor não encontrado na carteira autenticada."
 
+_PRODUCER_REF_RE = re.compile(r"^[A-Za-z0-9À-ÿ _.\-&/]{1,80}\Z")
+
 
 class ProducerUnavailableError(PermissionError):
     """Lançada quando o produtor não existe ou não pertence à carteira da sessão.
@@ -76,6 +84,19 @@ class ProducerUnavailableError(PermissionError):
     Usa resposta única para evitar enumeração de clientes de outras carteiras.
     """
 
+def sanitize_producer_ref(producer_ref: str) -> str:
+    """Valida formato de `producer_ref`, bloqueando quebras de linha e injeção."""
+    if not isinstance(producer_ref, str):
+        raise TypeError("Referência de produtor deve ser texto.")
+    if "\n" in producer_ref or "\r" in producer_ref or "\t" in producer_ref:
+        raise ValueError("Referência de produtor não pode conter quebras de linha ou tabulação.")
+    cleaned = producer_ref.strip()
+    if not cleaned or not _PRODUCER_REF_RE.fullmatch(cleaned):
+        raise ValueError(
+            "Referência de produtor inválida: use apenas ID ou nome (até 80 caracteres, "
+            "sem pontuação especial ou comandos)."
+        )
+    return cleaned
 
 def _filter_allowlist(data: dict[str, Any], allowed_keys: frozenset[str]) -> dict[str, Any]:
     return {key: value for key, value in data.items() if key in allowed_keys}
@@ -85,6 +106,14 @@ def _sanitize_webhook_error(value: Any) -> str:
     if isinstance(value, str) and value in ALLOWED_WEBHOOK_ERRORS:
         return value
     return "erro_nao_catalogado"
+
+
+def _sanitize_webhook_errors_map(raw_errors: dict[str, int]) -> dict[str, int]:
+    sanitized: dict[str, int] = {}
+    for err, qty in raw_errors.items():
+        safe_key = _sanitize_webhook_error(err)
+        sanitized[safe_key] = sanitized.get(safe_key, 0) + int(qty)
+    return sanitized
 
 
 def _sanitize_tickets_by_category(raw_tickets: dict[str, int]) -> dict[str, int]:
@@ -98,6 +127,8 @@ def _sanitize_tickets_by_category(raw_tickets: dict[str, int]) -> dict[str, int]
 def _sanitize_signals_block(raw_signals: dict[str, Any]) -> dict[str, Any]:
     filtered = _filter_allowlist(raw_signals, ALLOWED_SIGNAL_FIELDS)
     filtered["top_webhook_error"] = _sanitize_webhook_error(filtered.get("top_webhook_error"))
+    raw_wh_errors = filtered.get("webhook_errors_by_category") or {}
+    filtered["webhook_errors_by_category"] = _sanitize_webhook_errors_map(raw_wh_errors)
     raw_tickets = filtered.get("tickets_by_category") or {}
     filtered["tickets_by_category"] = _sanitize_tickets_by_category(raw_tickets)
     return filtered
@@ -112,24 +143,32 @@ def _describe_main_signal(signals: dict[str, Any], safe_s7: dict[str, Any]) -> s
         )
     sales_var = safe_s7["sales_variation_vs_baseline_pct"]
     if sales_var is None:
-        parts.append("sem baseline de vendas nos 21 dias anteriores")
+        parts.append(
+            f"sem histórico de vendas nos {safe_s7['baseline_window_days']} dias anteriores"
+        )
     elif sales_var <= SALES_DROP_ALERT_THRESHOLD_PCT:
-        parts.append(f"vendas {sales_var}% vs. média")
+        parts.append(f"vendas {sales_var}% vs. média ({safe_s7['baseline_window_days']}d)")
     if safe_s7["open_critical_tickets"] > 0:
         parts.append(f"{safe_s7['open_critical_tickets']} ticket(s) crítico(s) aberto(s)")
 
     if parts:
         return "; ".join(parts)
     if signals["risk_level"] == "sem_baseline":
-        return "sem histórico suficiente para baseline"
-    return "operação estável nos últimos 7 dias"
-
+        return "sem histórico suficiente para comparação"
+    return f"operação estável nos últimos {safe_s7['recent_window_days']} dias"
 
 def _require_owned_producer(
     repo: RadarRepository, session_manager_id: str, producer_ref: str
 ) -> dict[str, Any]:
-    producer = repo.get_producer(producer_ref)
-    if producer is None or producer["manager_id"] != session_manager_id:
+    try:
+        safe_ref = sanitize_producer_ref(producer_ref)
+    except (TypeError, ValueError):
+        raise ProducerUnavailableError(
+            f"{UNAVAILABLE_ERROR_CODE}: {UNAVAILABLE_ERROR_MESSAGE}"
+        ) from None
+
+    producer = repo.get_producer_for_manager(session_manager_id, safe_ref)
+    if producer is None:
         raise ProducerUnavailableError(
             f"{UNAVAILABLE_ERROR_CODE}: {UNAVAILABLE_ERROR_MESSAGE}"
         )
@@ -160,6 +199,8 @@ def list_at_risk_for_session(
     return {
         "session_manager_id": session_manager_id,
         "min_score_filter": min_score,
+        "recent_window_days": RECENT_WINDOW_DAYS,
+        "baseline_window_days": BASELINE_WINDOW_DAYS,
         "total_portfolio_producers": len(producer_ids),
         "flagged_count": len(items),
         "producers": items,

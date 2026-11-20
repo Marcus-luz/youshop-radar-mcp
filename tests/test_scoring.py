@@ -7,7 +7,7 @@ from contextlib import closing
 from datetime import timedelta
 from pathlib import Path
 
-from youshop_radar.config import REFERENCE_DATE
+from youshop_radar.config import BASELINE_WINDOW_DAYS, RECENT_WINDOW_DAYS, REFERENCE_DATE
 from youshop_radar.data.repository import RadarRepository
 from youshop_radar.domain.scoring import compute_producer_signals, compute_weekly_history
 
@@ -22,19 +22,30 @@ def test_score_always_between_0_and_100(repo: RadarRepository) -> None:
 def test_risk_ordering_matches_planned_scenarios(repo: RadarRepository) -> None:
     aurora = compute_producer_signals(repo, "prod_aurora")
     nutrimax = compute_producer_signals(repo, "prod_nutrimax")
+    vitapulse = compute_producer_signals(repo, "prod_vitapulse")
     codemaster = compute_producer_signals(repo, "prod_codemaster")
     gestaopro = compute_producer_signals(repo, "prod_gestaopro")
     essencia = compute_producer_signals(repo, "prod_essencia")
 
     assert aurora["risk_level"] == "alto"
     assert nutrimax["risk_level"] == "alto"
+    assert vitapulse["risk_level"] == "alerta_tecnico_precoce"
     assert codemaster["risk_level"] == "falso_alarme_tecnico"
     assert gestaopro["risk_level"] == "baixo_sazonalidade"
     assert essencia["risk_level"] == "baixo"
 
-    assert aurora["risk_score"] > nutrimax["risk_score"] > codemaster["risk_score"]
+    assert (
+        aurora["risk_score"]
+        > nutrimax["risk_score"]
+        > vitapulse["risk_score"]
+        > codemaster["risk_score"]
+    )
+    assert vitapulse["risk_score"] >= 50
     assert codemaster["risk_score"] < 50
     assert gestaopro["risk_score"] < 50
+
+    assert aurora["signals_last_7d"]["recent_window_days"] == RECENT_WINDOW_DAYS
+    assert aurora["signals_last_7d"]["baseline_window_days"] == BASELINE_WINDOW_DAYS
 
 
 def test_weekly_history_returns_requested_weeks(repo: RadarRepository) -> None:
@@ -48,7 +59,6 @@ def test_weekly_history_returns_requested_weeks(repo: RadarRepository) -> None:
 def test_critical_webhook_error_with_stable_sales_is_early_alert(fresh_db_path: Path) -> None:
     """Erro crítico (assinatura_invalida) com vendas estáveis NÃO pode virar falso alarme."""
     with closing(sqlite3.connect(fresh_db_path)) as conn:
-        # prod_essencia tem vendas estáveis (+8%) e 0 tickets; inserimos 20.5% de falha crítica
         day_iso = REFERENCE_DATE.isoformat()
         conn.executemany(
             "INSERT INTO webhook_events (producer_id, created_at, status_code, error_category) "
@@ -61,7 +71,86 @@ def test_critical_webhook_error_with_stable_sales_is_early_alert(fresh_db_path: 
     result = compute_producer_signals(repo, "prod_essencia")
     assert result["signals_last_7d"]["webhook_failure_rate_pct"] >= 15.0
     assert result["risk_level"] == "alerta_tecnico_precoce"
-    assert result["risk_score"] >= 50
+    assert result["risk_score"] >= 55
+
+
+def test_mixed_auxiliary_and_critical_errors_never_become_false_alarm(fresh_db_path: Path) -> None:
+    """27 falhas auxiliares + 20 críticas não podem ser rebaixadas para falso alarme."""
+    with closing(sqlite3.connect(fresh_db_path)) as conn:
+        day_iso = REFERENCE_DATE.isoformat()
+        conn.executemany(
+            "INSERT INTO webhook_events (producer_id, created_at, status_code, error_category) "
+            "VALUES (?, ?, ?, ?)",
+            [("prod_essencia", day_iso, 500, "endpoint_analytics_offline")] * 27
+            + [("prod_essencia", day_iso, 401, "assinatura_invalida")] * 20,
+        )
+        conn.commit()
+
+    repo = RadarRepository(fresh_db_path)
+    result = compute_producer_signals(repo, "prod_essencia")
+    assert result["risk_level"] == "alerta_tecnico_precoce"
+    assert result["risk_score"] >= 55
+    assert result["signals_last_7d"]["webhook_errors_by_category"]["assinatura_invalida"] == 20
+
+
+def test_critical_webhook_with_open_ticket_scores_higher_than_without(fresh_db_path: Path) -> None:
+    """Falha crítica + 1 ticket aberto nunca pode ter visibilidade menor que 0 tickets."""
+    repo = RadarRepository(fresh_db_path)
+    without_ticket = compute_producer_signals(repo, "prod_vitapulse")
+
+    with closing(sqlite3.connect(fresh_db_path)) as conn:
+        conn.execute(
+            "INSERT INTO tickets (producer_id, created_at, category, status) VALUES (?, ?, ?, ?)",
+            ("prod_vitapulse", REFERENCE_DATE.isoformat(), "erro_integracao", "open"),
+        )
+        conn.commit()
+
+    with_ticket = compute_producer_signals(repo, "prod_vitapulse")
+    assert with_ticket["risk_score"] > without_ticket["risk_score"]
+    assert with_ticket["risk_level"] in {"medio", "alto"}
+
+
+def test_critical_webhook_with_mild_sales_drop_stays_flagged(fresh_db_path: Path) -> None:
+    """Falha crítica + queda leve de vendas (ex.: abaixo de -5%) não pode cair para baixo."""
+    with closing(sqlite3.connect(fresh_db_path)) as conn:
+        # Remove 6 pedidos recentes da prod_vitapulse (~ -7% em relação ao baseline)
+        recent_start = (REFERENCE_DATE - timedelta(days=6)).isoformat()
+        conn.execute(
+            """
+            DELETE FROM orders
+            WHERE id IN (
+                SELECT id FROM orders
+                WHERE producer_id = 'prod_vitapulse' AND created_at >= ?
+                LIMIT 6
+            )
+            """,
+            (recent_start,),
+        )
+        conn.commit()
+
+    repo = RadarRepository(fresh_db_path)
+    result = compute_producer_signals(repo, "prod_vitapulse")
+    assert result["signals_last_7d"]["sales_variation_vs_baseline_pct"] < -5.0
+    assert result["risk_score"] >= 55
+    assert result["risk_level"] in {"medio", "alto"}
+
+
+def test_unknown_webhook_error_category_is_treated_as_critical(fresh_db_path: Path) -> None:
+    """Falhas de categoria desconhecida (>=15%) são tratadas como críticas por cautela."""
+    with closing(sqlite3.connect(fresh_db_path)) as conn:
+        day_iso = REFERENCE_DATE.isoformat()
+        conn.executemany(
+            "INSERT INTO webhook_events (producer_id, created_at, status_code, error_category) "
+            "VALUES (?, ?, ?, ?)",
+            [("prod_essencia", day_iso, 502, "erro_gateway_desconhecido")] * 35,
+        )
+        conn.commit()
+
+    repo = RadarRepository(fresh_db_path)
+    result = compute_producer_signals(repo, "prod_essencia")
+    assert result["signals_last_7d"]["webhook_failure_rate_pct"] >= 20.0
+    assert result["risk_level"] == "alerta_tecnico_precoce"
+    assert result["risk_score"] >= 55
 
 
 def test_sales_window_includes_timestamps_on_reference_day(fresh_db_path: Path) -> None:

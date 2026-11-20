@@ -35,8 +35,28 @@ class RadarRepository:
                 SELECT id, manager_id, name, category, active_creators_count, seasonal_pattern
                 FROM producers
                 WHERE id = ? OR LOWER(name) = LOWER(?)
+                ORDER BY id
+                LIMIT 1
                 """,
                 (cleaned, cleaned),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_producer_for_manager(
+        self, manager_id: str, producer_ref: str
+    ) -> dict[str, Any] | None:
+        """Busca produtor já restrito à carteira da sessão (suporta nomes homônimos)."""
+        cleaned = producer_ref.strip()
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                """
+                SELECT id, manager_id, name, category, active_creators_count, seasonal_pattern
+                FROM producers
+                WHERE manager_id = ? AND (id = ? OR LOWER(name) = LOWER(?))
+                ORDER BY id
+                LIMIT 1
+                """,
+                (manager_id, cleaned, cleaned),
             ).fetchone()
             return dict(row) if row else None
 
@@ -77,7 +97,7 @@ class RadarRepository:
                 (producer_id, start_iso, end_exclusive_iso),
             ).fetchone()
 
-            top_err = conn.execute(
+            err_rows = conn.execute(
                 """
                 SELECT error_category, COUNT(*) AS qty
                 FROM webhook_events
@@ -86,16 +106,19 @@ class RadarRepository:
                   AND created_at >= ?
                   AND created_at < ?
                 GROUP BY error_category
-                ORDER BY qty DESC
-                LIMIT 1
+                ORDER BY qty DESC, error_category ASC
                 """,
                 (producer_id, start_iso, end_exclusive_iso),
-            ).fetchone()
+            ).fetchall()
+
+            errors_by_category = {row["error_category"]: int(row["qty"]) for row in err_rows}
+            top_error = err_rows[0]["error_category"] if err_rows else "nenhum"
 
             return {
                 "total": int(stats["total"] or 0),
                 "failed": int(stats["failed"] or 0),
-                "top_error": top_err["error_category"] if top_err else "nenhum",
+                "top_error": top_error,
+                "errors_by_category": errors_by_category,
             }
 
     def get_open_tickets_by_category(
@@ -111,6 +134,7 @@ class RadarRepository:
                   AND status = 'open'
                   AND created_at < ?
                 GROUP BY category
+                ORDER BY category ASC
                 """,
                 (producer_id, up_to_exclusive_iso),
             ).fetchall()

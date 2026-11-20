@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from groq import Groq
+from groq import Groq, RateLimitError
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from rich.console import Console
@@ -39,7 +39,7 @@ DEMO_SCENARIOS: list[dict[str, Any]] = [
     {
         "id": "priorizacao",
         "title": "1. Priorização da carteira",
-        "badge": "Visão Comercial",
+        "badge": "Visão Comercial + Alerta Precoce",
         "mode": "question",
         "user_message": (
             "Quem da minha carteira precisa de atenção hoje? "
@@ -89,6 +89,51 @@ DEMO_SCENARIOS: list[dict[str, Any]] = [
     },
 ]
 
+_GLOBAL_FORBIDDEN_PHRASES = (
+    "falha de pagamento",
+    "checkout travado",
+    "reembolso automático",
+    "reembolso automatico",
+)
+
+_SCENE_POLICY_RULES: dict[str, dict[str, tuple[str, ...]]] = {
+    "priorizacao": {
+        "required": ("aurora cosméticos", "nutrimax suplementos", "vitapulse saúde"),
+        "forbidden": (),
+    },
+    "diagnostico_aurora": {
+        "required": (),
+        "required_any": ("pode indicar", "podem indicar", "pode estar", "podem estar"),
+        "forbidden": (),
+    },
+    "rascunho_contato": {
+        "required": ("[rascunho — revisão e envio humano obrigatórios]",),
+        "forbidden": (
+            "baseline",
+            "score",
+            "churn",
+            "risco comercial alto",
+            "últimas 7 dias",
+            "ultimas 7 dias",
+        ),
+    },
+    "recusa_carteira": {
+        "required": (),
+        "forbidden": (
+            "acesso temporário",
+            "acesso temporario",
+            "abrir ticket",
+            "pedir ao produtor",
+            "relatórios ao produtor",
+            "relatorios ao produtor",
+        ),
+    },
+    "falso_alarme": {
+        "required": ("falso_alarme_tecnico",),
+        "forbidden": (),
+    },
+}
+
 _MONTHS_RE = r"(?:jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\.?"
 _DATE_RANGE_RE = re.compile(
     rf"\b\d{{1,2}}\s*(?:[–-]|a)\s*\d{{1,2}}\s*(?:de\s+)?{_MONTHS_RE}(?:\s*(?:de\s+)?\d{{2,4}})?\b",
@@ -100,24 +145,51 @@ _SINGLE_DATE_RE = re.compile(
 )
 _ISO_DATE_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 _YEAR_RE = re.compile(r"\b20\d{2}\b")
-_WINDOW_OR_TIME_RE = re.compile(
-    r"\b(?:7|21)\s*dias?\b|\b[1-4]\s*semanas?\b|\b\d+\s*(?:min(?:utos?)?|h(?:oras?)?)\b",
-    re.IGNORECASE,
-)
 _ORDINAL_RE = re.compile(r"(?m)^\s*\d+\.\s+|\bprioridade\s+\d+\b", re.IGNORECASE)
 
 _PCT_RE = re.compile(r"([+-]?\d+(?:[.,]\d+)?)\s*%")
 _BRL_RE = re.compile(r"R\$\s*([\d.\s\u00a0\u202f]+,\d{2}|\d+(?:[.,]\d+)?)")
-_METRIC_AFTER_RE = re.compile(
-    r"(?:score(?:\s+de\s+risco)?|pedidos?\s+recentes?|tickets?\s+abertos?|"
-    r"tickets?\s+cr[ií]ticos?|criadores?\s+ativos?|creators?\s+ativos?)"
-    r"[^\d\n]{0,12}(\d+(?:[.,]\d+)?)",
+_SCORE_RE = re.compile(r"score(?:\s+de\s+risco)?[^\d\n]{0,18}(\d+(?:[.,]\d+)?)", re.IGNORECASE)
+_COUNT_AFTER_RE = re.compile(
+    r"(?:pedidos?\s+recentes?|tickets?\s+abertos?|tickets?\s+cr[ií]ticos?|"
+    r"criadores?\s+ativos?|creators?\s+ativos?|produtores?\s+na\s+carteira|"
+    r"produtores?\s+sinalizados?)[^\d\n]{0,14}(\d+)"
+    r"(?!\s*(?:d\b|dias?|semanas?|meses?|h(?:oras?)?|min(?:utos?)?|%))",
     re.IGNORECASE,
 )
-_METRIC_BEFORE_RE = re.compile(
-    r"(\d+(?:[.,]\d+)?)\s*(?:pedidos?|eventos?|falhas?|tickets?(?:\s+cr[ií]ticos?)?|"
-    r"creators?|criadores?)\b",
+_COUNT_BEFORE_RE = re.compile(
+    r"(\d+)\s*(?:pedidos?|eventos?|falhas?|tickets?(?:\s+cr[ií]ticos?)?|"
+    r"creators?|criadores?|produtores?)\b",
     re.IGNORECASE,
+)
+_TIME_DAYS_RE = re.compile(r"(\d+)\s*dias?\b", re.IGNORECASE)
+_TIME_WEEKS_RE = re.compile(r"(\d+)\s*semanas?\b", re.IGNORECASE)
+_TIME_MINUTES_RE = re.compile(r"(\d+)\s*min(?:utos?)?\b", re.IGNORECASE)
+_TIME_HOURS_RE = re.compile(r"(\d+)\s*h(?:oras?)?\b", re.IGNORECASE)
+
+_PCT_KEYS = frozenset({"webhook_failure_rate_pct", "sales_variation_vs_baseline_pct"})
+_SCORE_KEYS = frozenset({"risk_score", "min_score_filter"})
+_BRL_KEYS = frozenset({"revenue_brl"})
+_COUNT_KEYS = frozenset(
+    {
+        "orders_count",
+        "recent_orders_count",
+        "webhook_failed_events",
+        "webhook_total_events",
+        "open_tickets_total",
+        "open_critical_tickets",
+        "tickets_opened",
+        "active_creators_count",
+        "total_portfolio_producers",
+        "flagged_count",
+    }
+)
+_COUNT_MAP_KEYS = frozenset({"tickets_by_category", "webhook_errors_by_category"})
+_DAY_KEYS = frozenset({"recent_window_days", "baseline_window_days"})
+_WEEK_KEYS = frozenset({"weeks_analyzed"})
+
+_GENERIC_VALUE_HEADERS = frozenset(
+    {"valor", "valores", "dado", "dados", "resultado", "atual", "medida"}
 )
 
 
@@ -149,28 +221,6 @@ def _try_parse_json(raw: str) -> Any:
     except json.JSONDecodeError:
         return raw
 
-_SKIP_GROUNDING_KEYS = frozenset({"calibration_note", "data_notice", "week_range"})
-
-
-def _collect_payload_numbers(obj: Any, out: set[float]) -> None:
-    if isinstance(obj, bool):
-        return
-    if isinstance(obj, (int, float)):
-        out.add(abs(float(obj)))
-        return
-    if isinstance(obj, str):
-        for match in re.findall(r"\d+(?:\.\d+)?", obj):
-            out.add(abs(float(match)))
-        return
-    if isinstance(obj, dict):
-        for key, val in obj.items():
-            if key in _SKIP_GROUNDING_KEYS:
-                continue
-            _collect_payload_numbers(val, out)
-    elif isinstance(obj, list):
-        for item in obj:
-            _collect_payload_numbers(item, out)
-
 
 def _parse_ptbr_number(raw: str) -> float | None:
     cleaned = re.sub(r"[\s\u00a0\u202f]+", "", raw).lstrip("+-")
@@ -186,60 +236,234 @@ def _parse_ptbr_number(raw: str) -> float | None:
         return None
 
 
-def _extract_table_numbers(text: str) -> list[str]:
-    found: list[str] = []
-    for line in text.splitlines():
-        stripped = line.strip()
-        if not stripped.startswith("|") or re.match(r"^\|[\s:|-]+\|$", stripped):
+def _empty_typed_pools() -> dict[str, set[float]]:
+    return {
+        "pct": set(),
+        "score": set(),
+        "brl": set(),
+        "count": set(),
+        "time_days": set(),
+        "time_weeks": set(),
+        "time_minutes": set(),
+        "time_hours": set(),
+    }
+
+
+def _populate_typed_pools(obj: Any, pools: dict[str, set[float]], parent_key: str = "") -> None:
+    if isinstance(obj, bool):
+        return
+    if isinstance(obj, (int, float)):
+        val = abs(float(obj))
+        if parent_key in _PCT_KEYS:
+            pools["pct"].add(val)
+        elif parent_key in _SCORE_KEYS:
+            pools["score"].add(val)
+        elif parent_key in _BRL_KEYS:
+            pools["brl"].add(val)
+        elif parent_key in _COUNT_KEYS:
+            pools["count"].add(val)
+        elif parent_key in _DAY_KEYS:
+            pools["time_days"].add(val)
+            if val % 7 == 0 and val > 0:
+                pools["time_weeks"].add(val / 7.0)
+        elif parent_key in _WEEK_KEYS:
+            pools["time_weeks"].add(val)
+        return
+
+    if isinstance(obj, str) and parent_key == "main_signal":
+        for raw_pct in re.findall(r"([+-]?\d+(?:\.\d+)?)\s*%", obj):
+            pools["pct"].add(abs(float(raw_pct)))
+        for raw_days in re.findall(r"(\d+)\s*(?:d\b|dias?\b)", obj):
+            d_val = float(raw_days)
+            pools["time_days"].add(d_val)
+            if d_val % 7 == 0 and d_val > 0:
+                pools["time_weeks"].add(d_val / 7.0)
+        for raw_cnt in re.findall(r"(\d+)\s*ticket", obj):
+            pools["count"].add(float(raw_cnt))
+        return
+
+    if isinstance(obj, dict):
+        if parent_key in _COUNT_MAP_KEYS:
+            for val in obj.values():
+                if isinstance(val, (int, float)) and not isinstance(val, bool):
+                    pools["count"].add(abs(float(val)))
+            return
+        for key, val in obj.items():
+            _populate_typed_pools(val, pools, parent_key=key)
+    elif isinstance(obj, list):
+        for item in obj:
+            _populate_typed_pools(item, pools, parent_key=parent_key)
+
+
+def _populate_playbook_times(playbook_text: str, pools: dict[str, set[float]]) -> None:
+    if not playbook_text:
+        return
+    for raw in _TIME_MINUTES_RE.findall(playbook_text):
+        pools["time_minutes"].add(float(raw))
+    for raw in _TIME_HOURS_RE.findall(playbook_text):
+        pools["time_hours"].add(float(raw))
+    for raw in _TIME_WEEKS_RE.findall(playbook_text):
+        pools["time_weeks"].add(float(raw))
+    for raw in _TIME_DAYS_RE.findall(playbook_text):
+        pools["time_days"].add(float(raw))
+
+
+def _classify_table_label(label: str) -> str:
+    h = label.lower()
+    if "%" in h or "taxa" in h or "varia" in h:
+        return "pct"
+    if "r$" in h or "brl" in h or "receita" in h:
+        return "brl"
+    if "score" in h:
+        return "score"
+    if any(
+        k in h for k in ("pedido", "order", "evento", "ticket", "criador", "creator", "produtor")
+    ):
+        return "count"
+    if any(k in h for k in ("dia", "day", "janela", "window")):
+        return "time_days"
+    if any(k in h for k in ("semana", "week")):
+        return "time_weeks"
+    return "count"
+
+
+def _extract_typed_table_claims(text: str) -> list[tuple[str, str]]:
+    claims: list[tuple[str, str]] = []
+    lines = text.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        if (
+            line.startswith("|")
+            and i + 1 < len(lines)
+            and re.match(r"^\|[\s:|-]+\|$", lines[i + 1].strip())
+        ):
+            headers = [c.strip() for c in line.split("|")[1:-1]]
+            col_types = [_classify_table_label(h) for h in headers]
+            is_kv_table = len(headers) == 2 and headers[1].lower() in _GENERIC_VALUE_HEADERS
+            i += 2
+            while i < len(lines) and lines[i].strip().startswith("|"):
+                cells = [c.strip() for c in lines[i].strip().split("|")[1:-1]]
+                row_label = cells[0] if cells else ""
+                for idx, cell in enumerate(cells[1:], start=1):
+                    if idx >= len(col_types):
+                        continue
+                    plain = re.sub(r"[*_`~]", "", cell).strip()
+                    if re.fullmatch(r"[+-]?[\d.\s\u00a0\u202f]+(?:,\d+)?\s*%?", plain):
+                        if plain.endswith("%"):
+                            col_type = "pct"
+                        elif is_kv_table:
+                            col_type = _classify_table_label(row_label)
+                        else:
+                            col_type = col_types[idx]
+                        claims.append((col_type, plain.rstrip("%").strip()))
+                i += 1
             continue
-        cells = [c.strip() for c in stripped.split("|")[1:-1]]
-        for cell in cells[1:]:
-            plain = re.sub(r"[*_`~]", "", cell).strip()
-            if re.fullmatch(r"[+-]?[\d.\s\u00a0\u202f]+(?:,\d+)?%?", plain):
-                found.append(plain.rstrip("%").strip())
-    return found
+        i += 1
+    return claims
 
 
-def verify_grounded_numbers(answer: str, tool_trace: list[dict[str, Any]]) -> dict[str, Any]:
-    """Confere se os números de métricas citados na resposta existem nos payloads MCP."""
-    grounded_pool: set[float] = set()
+def verify_grounded_numbers(
+    answer: str,
+    tool_trace: list[dict[str, Any]],
+    playbook_text: str = "",
+) -> dict[str, Any]:
+    """Audita números por categoria tipada contra os payloads MCP e o playbook."""
+    pools = _empty_typed_pools()
     for call in tool_trace:
-        _collect_payload_numbers(call.get("result"), grounded_pool)
+        _populate_typed_pools(call.get("result"), pools)
+    _populate_playbook_times(playbook_text, pools)
 
-    # Normaliza sinais especiais (ex.: hífen não separável U+2011)
     normalized = answer.replace("\u2011", "-").replace("\u2212", "-")
     scrubbed = _ISO_DATE_RE.sub(" ", normalized)
     scrubbed = _DATE_RANGE_RE.sub(" ", scrubbed)
     scrubbed = _SINGLE_DATE_RE.sub(" ", scrubbed)
     scrubbed = _YEAR_RE.sub(" ", scrubbed)
-    scrubbed = _WINDOW_OR_TIME_RE.sub(" ", scrubbed)
     scrubbed = _ORDINAL_RE.sub(" ", scrubbed)
 
-    raw_candidates: list[str] = []
-    for pattern in (_PCT_RE, _BRL_RE, _METRIC_AFTER_RE, _METRIC_BEFORE_RE):
-        raw_candidates.extend(pattern.findall(scrubbed))
-    raw_candidates.extend(_extract_table_numbers(scrubbed))
+    claims: list[tuple[str, str]] = []
+    for raw in _PCT_RE.findall(scrubbed):
+        claims.append(("pct", raw))
+    for raw in _BRL_RE.findall(scrubbed):
+        claims.append(("brl", raw))
+    for raw in _SCORE_RE.findall(scrubbed):
+        claims.append(("score", raw))
+    for raw in _COUNT_AFTER_RE.findall(scrubbed):
+        claims.append(("count", raw))
+    for raw in _COUNT_BEFORE_RE.findall(scrubbed):
+        claims.append(("count", raw))
+    for raw in _TIME_DAYS_RE.findall(scrubbed):
+        claims.append(("time_days", f"{raw}d"))
+    for raw in _TIME_WEEKS_RE.findall(scrubbed):
+        claims.append(("time_weeks", f"{raw}sem"))
+    for raw in _TIME_MINUTES_RE.findall(scrubbed):
+        claims.append(("time_minutes", f"{raw}min"))
+    for raw in _TIME_HOURS_RE.findall(scrubbed):
+        claims.append(("time_hours", f"{raw}h"))
+    claims.extend(_extract_typed_table_claims(scrubbed))
 
     checked: list[str] = []
     ungrounded: list[str] = []
-    seen_values: set[float] = set()
+    seen: set[tuple[str, float]] = set()
 
-    for raw in raw_candidates:
-        val = _parse_ptbr_number(raw)
-        if val is None or val in seen_values:
+    for category, raw_label in claims:
+        numeric_part = re.sub(r"[a-zA-Z]+$", "", raw_label).strip()
+        val = _parse_ptbr_number(numeric_part)
+        if val is None or (category, val) in seen:
             continue
-        seen_values.add(val)
-        label = raw.strip()
-        checked.append(label)
-        if not any(abs(val - ref) <= 0.05 for ref in grounded_pool):
-            ungrounded.append(label)
+        seen.add((category, val))
+        tagged = f"{category}:{raw_label.strip()}"
+        checked.append(tagged)
+        allowed_pool = pools.get(category, set())
+        if not any(abs(val - ref) <= 0.05 for ref in allowed_pool):
+            ungrounded.append(tagged)
 
     return {
         "verified": len(ungrounded) == 0,
+        "typed_audit": True,
         "checked_count": len(checked),
         "checked_numbers": checked,
         "ungrounded_numbers": ungrounded,
     }
+
+
+def verify_scene_policies(scene_id: str, answer: str) -> dict[str, Any]:
+    """Valida regras editoriais e de segurança por cena (frases proibidas e obrigatórias)."""
+    lowered = answer.lower()
+    violations: list[str] = []
+
+    for phrase in _GLOBAL_FORBIDDEN_PHRASES:
+        if phrase in lowered:
+            violations.append(f"termo_inventado_proibido:{phrase}")
+
+    rules = _SCENE_POLICY_RULES.get(scene_id, {})
+    for forbidden in rules.get("forbidden", ()):
+        if forbidden in lowered:
+            violations.append(f"proibido_na_cena:{forbidden}")
+
+    for required in rules.get("required", ()):
+        if required not in lowered:
+            violations.append(f"ausente_na_cena:{required}")
+
+    required_any = rules.get("required_any", ())
+    if required_any and not any(opt in lowered for opt in required_any):
+        violations.append(f"ausente_linguagem_hipotese:{'|'.join(required_any)}")
+
+    return {
+        "passed": len(violations) == 0,
+        "violations": violations,
+    }
+
+
+def audit_recorded_step(
+    step: dict[str, Any], playbook_text: str = ""
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Executa auditoria numérica tipada + política editorial sobre uma cena gravada."""
+    answer = step.get("assistant_response", "")
+    tool_trace = step.get("mcp_tool_calls", [])
+    grounding = verify_grounded_numbers(answer, tool_trace, playbook_text=playbook_text)
+    policy = verify_scene_policies(step.get("id", ""), answer)
+    return grounding, policy
 
 
 def _build_groq_tools(mcp_tools: list[Any]) -> list[dict[str, Any]]:
@@ -272,13 +496,26 @@ async def _run_agent_turn(
     tool_trace: list[dict[str, Any]] = []
 
     for _ in range(max_rounds):
-        response = groq_client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=messages,
-            tools=groq_tools,
-            tool_choice="auto",
-            temperature=0.0,
-        )
+        response = None
+        for attempt in range(4):
+            try:
+                response = groq_client.chat.completions.create(
+                    model=MODEL_NAME,
+                    messages=messages,
+                    tools=groq_tools,
+                    tool_choice="auto",
+                    temperature=0.0,
+                )
+                break
+            except RateLimitError:
+                if attempt == 3:
+                    raise
+                wait_s = 3.0 * (attempt + 1)
+                console.print(
+                    f"  [dim]⏳ Limite TPM da Groq atingido; aguardando {wait_s:.0f}s...[/dim]"
+                )
+                await asyncio.sleep(wait_s)
+        assert response is not None
         msg = response.choices[0].message
 
         if not msg.tool_calls:
@@ -342,41 +579,39 @@ async def _load_playbook_resource(session: ClientSession) -> tuple[str, str]:
     return uri, text
 
 
-async def _build_system_prompt(session: ClientSession) -> tuple[str, str]:
+async def _build_system_prompt(session: ClientSession) -> tuple[str, str, str]:
     playbook_uri, playbook_text = await _load_playbook_resource(session)
     system_prompt = (
         "Você é o YouShop Radar, um agente analítico somente leitura conectado via MCP "
         "para apoiar gerentes de contas do Comercial.\n"
         "Regras obrigatórias:\n"
-        "1. Sempre consulte as ferramentas MCP antes de responder. Nunca invente números nem "
-        "crie exemplos fictícios de tickets (como 'falha de pagamento', 'checkout travado' ou "
-        "'reembolso automático'). Copie exatamente as casas decimais retornadas pelo servidor "
-        "(ex.: escreva '32,1%' e '-40,1%', NUNCA arredonde para '32%' ou '40%').\n"
+        "1. Sempre consulte as ferramentas MCP antes de responder. Cite exclusivamente os valores "
+        "numéricos, prazos e categorias exatos devolvidos pelas ferramentas ou pelo guia carregado. "
+        "Mesmo ao explicar em linguagem simples, JAMAIS arredonde, faça aproximações ou crie "
+        "analogias numéricas (não escreva 'mais de 30%', 'cerca de 23%', 'em cada 10 eventos' ou "
+        "'de 0 a 100%'): copie apenas os números literais das ferramentas com todas as casas "
+        "decimais. Não acrescente exemplos extras de tickets e não invente prazos em horas.\n"
         "2. Ao responder sobre quem precisa de atenção hoje, chame `list_at_risk_producers` com o "
-        "padrão `min_score=50` para focar em quem realmente exige ação. NÃO liste em detalhes "
-        "produtores saudáveis com score baixo/zero; informe apenas o total de contas sinalizadas "
-        "frente ao total da carteira.\n"
-        "3. Ao explicar causas técnicas prováveis (ex.: erro `assinatura_invalida`), use sempre "
-        "linguagem de hipótese ('pode indicar'), nunca como certeza absoluta. Use também o nome "
-        "exato do `risk_level` retornado (não chame um produtor de nível `alto` de "
-        "'alerta técnico precoce').\n"
-        "4. Em rascunhos de contato ao produtor (WhatsApp/e-mail/telefone), JAMAIS mencione score "
-        "numérico, 'baseline', classificação interna ('risco comercial alto') ou a palavra "
-        "'churn'. Use os percentuais exatos com 1 casa decimal (ex.: '32,1%' e '40,1%'), adote "
-        "tom consultivo e parceiro e comece com "
+        "padrão `min_score=50` e apresente todos os produtores sinalizados em ordem de prioridade "
+        "(incluindo alertas técnicos precoces), informando o total sinalizado frente ao total da "
+        "carteira.\n"
+        "3. Sempre que detalhar sinais de um produtor com erro de webhook, inclua uma "
+        "hipótese curta de causa provável usando 'pode indicar' ou 'podem indicar' (nunca "
+        "certeza absoluta) e preserve o nome exato do `risk_level` retornado.\n"
+        "4. Em rascunhos de contato ao produtor, JAMAIS mencione score numérico, 'baseline', "
+        "classificação interna ou a palavra 'churn'. Use português correto ('nos últimos 7 dias', "
+        "'em relação à média dos 21 dias anteriores'), adote tom consultivo e comece com "
         "'[RASCUNHO — REVISÃO E ENVIO HUMANO OBRIGATÓRIOS]'.\n"
-        "5. Se uma ferramenta retornar `PRODUCER_UNAVAILABLE`, responda de forma curta e objetiva "
-        "(no máximo 2 frases) informando apenas que o produtor não está disponível na carteira "
-        "autenticada e que eventuais dúvidas de escopo devem ser tratadas com a gestão comercial. "
-        "É PROIBIDO sugerir contornos como pedir relatórios ao produtor ou abrir ticket para "
-        "'acesso temporário'.\n"
+        "5. Se uma ferramenta retornar `PRODUCER_UNAVAILABLE`, responda em no máximo 2 frases "
+        "informando apenas que o produtor não está disponível na carteira autenticada e que "
+        "dúvidas de escopo devem ser tratadas com a gestão comercial. Nunca sugira contornos.\n"
         "6. Se o nível for `falso_alarme_tecnico`, destaque explicitamente o que os dados NÃO "
-        "comprovam (erro em endpoint auxiliar sem queda de vendas e sem tickets críticos) e "
-        "recomende não tratar como churn urgente.\n"
+        "comprovam (erro apenas em endpoint auxiliar sem queda de vendas e sem tickets críticos) "
+        "e oriente não tratar como urgência de churn.\n"
         "7. Responda sempre em português do Brasil, de forma objetiva e clara para não técnicos.\n\n"
         f"Guia de exemplo carregado do MCP Resource ({playbook_uri}):\n{playbook_text}"
     )
-    return playbook_uri, system_prompt
+    return playbook_uri, playbook_text, system_prompt
 
 
 def _server_params(session_manager_id: str) -> StdioServerParameters:
@@ -389,8 +624,8 @@ def _server_params(session_manager_id: str) -> StdioServerParameters:
     )
 
 
-async def run_recorded_demo(groq_client: Groq, session_manager: str) -> None:
-    """Executa o roteiro de 5 cenas, audita números e grava docs/replay_data.json."""
+async def run_recorded_demo(groq_client: Groq, session_manager: str) -> bool:
+    """Executa o roteiro de 5 cenas, audita rigorosamente e bloqueia gravação se falhar."""
     async with (
         stdio_client(_server_params(session_manager)) as (read_stream, write_stream),
         ClientSession(read_stream, write_stream) as session,
@@ -402,7 +637,7 @@ async def run_recorded_demo(groq_client: Groq, session_manager: str) -> None:
         prompts_res = await session.list_prompts()
         mcp_prompts = getattr(prompts_res, "prompts", [])
 
-        playbook_uri, system_prompt = await _build_system_prompt(session)
+        playbook_uri, playbook_text, system_prompt = await _build_system_prompt(session)
         groq_tools = _build_groq_tools(mcp_tools)
 
         console.print(
@@ -416,6 +651,7 @@ async def run_recorded_demo(groq_client: Groq, session_manager: str) -> None:
         )
 
         recorded_steps: list[dict[str, Any]] = []
+        audit_failures: list[str] = []
 
         for scenario in DEMO_SCENARIOS:
             console.rule(f"[bold]{scenario['title']}[/bold]")
@@ -451,41 +687,53 @@ async def run_recorded_demo(groq_client: Groq, session_manager: str) -> None:
                 user_prompt=effective_prompt,
             )
 
-            grounding = verify_grounded_numbers(answer, tool_trace)
+            step_obj: dict[str, Any] = {
+                "id": scenario["id"],
+                "title": scenario["title"],
+                "badge": scenario["badge"],
+                "user_message": scenario["user_message"],
+                "mcp_prompt_used": mcp_prompt_used,
+                "mcp_tool_calls": tool_trace,
+                "assistant_response": answer,
+            }
+            grounding, policy = audit_recorded_step(step_obj, playbook_text=playbook_text)
+            step_obj["grounding_check"] = grounding
+            step_obj["policy_check"] = policy
 
             for call in tool_trace:
                 args_str = json.dumps(call["arguments"], ensure_ascii=False)
                 console.print(f"  [dim]→ MCP Tool: {call['tool']}({args_str})[/dim]")
 
-            if grounding["verified"]:
+            if grounding["verified"] and policy["passed"]:
                 console.print(
-                    f"  [green]✓ Verificador numérico: {grounding['checked_count']} "
-                    "métrica(s) conferida(s) nos payloads MCP[/green]"
+                    f"  [green]✓ Auditoria tipada + políticas: {grounding['checked_count']} "
+                    "métrica(s) conferida(s) por tipo[/green]"
                 )
             else:
-                console.print(
-                    f"  [bold yellow]⚠ Verificador numérico encontrou valores fora dos payloads: "
-                    f"{grounding['ungrounded_numbers']}[/bold yellow]"
-                )
+                if not grounding["verified"]:
+                    msg = f"{scenario['id']} (numérico): {grounding['ungrounded_numbers']}"
+                    audit_failures.append(msg)
+                    console.print(f"  [bold red]✗ Falha numérica tipada: {msg}[/bold red]")
+                if not policy["passed"]:
+                    msg = f"{scenario['id']} (política): {policy['violations']}"
+                    audit_failures.append(msg)
+                    console.print(f"  [bold red]✗ Falha de política: {msg}[/bold red]")
 
             console.print(
                 Panel(answer, title=f"YouShop Radar ({MODEL_NAME} + MCP)", border_style="green")
             )
 
-            recorded_steps.append(
-                {
-                    "id": scenario["id"],
-                    "title": scenario["title"],
-                    "badge": scenario["badge"],
-                    "user_message": scenario["user_message"],
-                    "mcp_prompt_used": mcp_prompt_used,
-                    "mcp_tool_calls": tool_trace,
-                    "assistant_response": answer,
-                    "grounding_check": grounding,
-                }
-            )
+            recorded_steps.append(step_obj)
+            await asyncio.sleep(2.0)
 
-            await asyncio.sleep(0.6)
+        if audit_failures:
+            console.print(
+                "\n[bold red]GRAVAÇÃO BLOQUEADA:[/bold red] o replay falhou na auditoria "
+                "e docs/replay_data.json NÃO foi sobrescrito."
+            )
+            for failure in audit_failures:
+                console.print(f"  - {failure}")
+            return False
 
         replay_payload = {
             "metadata": {
@@ -512,8 +760,10 @@ async def run_recorded_demo(groq_client: Groq, session_manager: str) -> None:
             encoding="utf-8",
         )
         console.print(
-            f"\n[bold green]Sessão gravada com sucesso em:[/bold green] {REPLAY_OUTPUT_PATH}"
+            f"\n[bold green]Sessão auditada e gravada com sucesso em:[/bold green] "
+            f"{REPLAY_OUTPUT_PATH}"
         )
+        return True
 
 
 async def run_interactive_chat(groq_client: Groq, session_manager: str) -> None:
@@ -525,7 +775,7 @@ async def run_interactive_chat(groq_client: Groq, session_manager: str) -> None:
         await session.initialize()
         tools_res = await session.list_tools()
         groq_tools = _build_groq_tools(getattr(tools_res, "tools", []))
-        _, system_prompt = await _build_system_prompt(session)
+        _, _, system_prompt = await _build_system_prompt(session)
 
         console.print(
             Panel.fit(
@@ -562,7 +812,7 @@ def main() -> None:
     parser.add_argument(
         "--record",
         action="store_true",
-        help="Executa o roteiro de 5 cenas e salva docs/replay_data.json (padrão).",
+        help="Executa o roteiro de 5 cenas, audita e salva docs/replay_data.json (padrão).",
     )
     args = parser.parse_args()
 
@@ -584,7 +834,9 @@ def main() -> None:
     if args.interactive:
         asyncio.run(run_interactive_chat(groq_client, session_manager))
     else:
-        asyncio.run(run_recorded_demo(groq_client, session_manager))
+        ok = asyncio.run(run_recorded_demo(groq_client, session_manager))
+        if not ok:
+            sys.exit(1)
 
 
 if __name__ == "__main__":
