@@ -415,10 +415,10 @@
 
   <nav class="tabs" aria-label="Navegação do protótipo">
     <div class="tabs-inner">
-      <button class="tab-btn active" data-tab="painel">1. Painel do Gerente & Isolamento</button>
+      <button class="tab-btn active" data-tab="painel">1. Painel do Gerente &amp; Isolamento</button>
       <button class="tab-btn" data-tab="simulador">2. Simulador de Regras</button>
       <button class="tab-btn" data-tab="replay">3. Conversa com a IA (Replay MCP)</button>
-      <button class="tab-btn" data-tab="diagnostico">4. Diagnóstico, Limites & Piloto</button>
+      <button class="tab-btn" data-tab="diagnostico">4. Diagnóstico, Limites &amp; Piloto</button>
     </div>
   </nav>
 
@@ -568,40 +568,45 @@
     <!-- ABA 4: DIAGNÓSTICO, LIMITES E PILOTO -->
     <section id="tab-diagnostico" class="panel">
       <div class="card">
-        <h2>Pesquisa de Diagnóstico <span class="tag tag-ext">Evidências públicas — separadas dos dados simulados</span></h2>
-        <p class="subtext">Para validar se a dor existe no mercado real sem depender apenas de hipótese, levantamos fontes públicas verificáveis do ecossistema de vendas digitais e webhooks.</p>
+        <h2>Pesquisa de Diagnóstico <span class="tag tag-ext">Fontes verificadas — separadas dos dados simulados</span></h2>
+        <p class="subtext">Cada fonte abaixo foi aberta e conferida diretamente no material oficial do desafio, nas páginas públicas da YouShop e no benchmark do Baymard Institute.</p>
         <table class="clean-table">
           <thead>
             <tr>
-              <th>Fonte pública</th>
-              <th>O que foi analisado</th>
-              <th>Evidência encontrada</th>
+              <th>Fonte verificada</th>
+              <th>Referência direta / acesso</th>
+              <th>Evidência literal confirmada</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td><strong>Site & Central YouShop</strong> (nov/2026)</td>
-              <td><code>youshop.co</code> e <code>ajuda.youshop.co</code></td>
-              <td>A página inicial destaca: <em>"Seu checkout trava na hora H e você perde vendas sem nem saber"</em>. A Central mantém guias de Webhooks, Checkout e Creators.</td>
+              <td><strong>Material oficial do desafio</strong> (YouShop 2027)</td>
+              <td><code>Desafio de Inovação – Programa de Estágio YouShop 2027.pdf</code><br><span style="font-size:0.8rem;color:var(--muted);">Slides 7, 8, 9 e 10</span></td>
+              <td>Documenta indicadores espalhados entre áreas (Slide 7), apoio em checkout, integrações e comissões de creators (Slide 8), foco do Comercial em <em>"agir antes que alguém deixe a plataforma"</em> (Slide 9) e incidentes em produção <em>"sob pressão de tempo"</em> (Slide 10).</td>
             </tr>
             <tr>
-              <td><strong>Reclame Aqui</strong> (mar/2024 – jul/2026)</td>
-              <td>Relatos públicos de produtores (Kiwify e Hotmart)</td>
-              <td>Padrão recorrente de falhas silenciosas: erro na geração de Pix por dias, webhook de assinatura quebrado gerando prejuízo e produto pausado por demora no diagnóstico técnico.</td>
+              <td><strong>Site oficial YouShop</strong></td>
+              <td><a href="https://youshop.co" target="_blank" rel="noopener">https://youshop.co</a><br><span style="font-size:0.8rem;color:var(--muted);">Acessado em 20/11/2026</span></td>
+              <td>Carrossel <em>"Chega de perder vendas..."</em>: <em>"Seu checkout trava na hora H e você perde vendas sem nem saber. Clientes desistem por falhas técnicas que passam despercebidas."</em> Outras seções destacam <em>"perda de receita silenciosa"</em> e <em>"você não sabe quem está ativo ou prestes a cancelar"</em>.</td>
             </tr>
             <tr>
-              <td><strong>Docs técnicas</strong> (Eduzz ago/2026 · Stripe)</td>
-              <td>Guias públicos de Webhooks e verificação de assinatura</td>
-              <td>Confirmam que retornos diferentes de HTTP 200, timeouts e falhas de assinatura derrubam a entrega de eventos e exigem monitoramento ativo.</td>
+              <td><strong>Central de Ajuda YouShop</strong> (Webhooks)</td>
+              <td><a href="https://ajuda.youshop.co/categories/webhooks" target="_blank" rel="noopener">ajuda.youshop.co/categories/webhooks</a><br><span style="font-size:0.8rem;color:var(--muted);">Acessado em 20/11/2026</span></td>
+              <td>Reúne <strong>15 guias oficiais</strong> conectando eventos de venda em tempo real a ERP (Tiny), áreas de membros (Cademí, Membox), WhatsApp/automação (Sellflux, Wati, Voxuy, Leadszapp, VolteAqui), rastreamento (UTMify, VTurb) e <strong>grupos de creators</strong>.</td>
             </tr>
             <tr>
-              <td><strong>Baymard Institute</strong> (out/2026)</td>
-              <td><em>Cart Abandonment Rate</em> (50 estudos de e-commerce)</td>
-              <td>Taxa média de abandono de <strong>70,22%</strong>; entre compradores que desistem, <strong>17%</strong> apontam diretamente erros ou travamentos no site.</td>
+              <td><strong>Baymard Institute</strong> (Benchmark Checkout)</td>
+              <td><a href="https://baymard.com/blog/cart-abandonment-rate" target="_blank" rel="noopener">baymard.com/blog/cart-abandonment-rate</a><br><span style="font-size:0.8rem;color:var(--muted);">Atualizado em 28/10/2026 · Acessado em 20/11/2026</span></td>
+              <td>Taxa média documentada de abandono de carrinho de <strong>70,22%</strong> (média de 50 estudos publicados entre 2006–2025) e <strong>35,26%</strong> de potencial de elevação de conversão via melhorias no fluxo de checkout.</td>
+            </tr>
+            <tr>
+              <td><strong>Vivência prática</strong> (paralelo de outro setor)</td>
+              <td>SEAC Gestão (Residência BRISA)<br><span style="font-size:0.8rem;color:var(--muted);">Experiência própria</span></td>
+              <td>Em sistema real com cliente de gestão financeira, observou-se o mesmo custo de decisão no escuro quando dados operacionais e financeiros ficam desconectados.</td>
             </tr>
           </tbody>
         </table>
-        <p class="subtext" style="margin:10px 0 0;"><strong>Limite da evidência:</strong> trata-se de <em>proxies</em> externos de mercado. A frequência real desses eventos na YouShop só pode ser medida no piloto com dados internos.</p>
+        <p class="subtext" style="margin:10px 0 0;"><strong>Escopo honesto da evidência:</strong> o material oficial e a Central da YouShop confirmam a relevância operacional de checkout, webhooks e retenção; o Baymard é um benchmark externo de mercado (e o SEAC Gestão é outro setor). A frequência interna desses eventos na YouShop só pode ser medida no piloto.</p>
       </div>
 
       <div class="grid-2">
@@ -893,7 +898,7 @@
             <div class="s">Total abertos (qualquer idade): ${s7.open_tickets_total}</div>
           </div>
           <div class="metric-box">
-            <div class="k">Creators & Sazonalidade</div>
+            <div class="k">Creators &amp; Sazonalidade</div>
             <div class="v">${sig.active_creators_count} creators</div>
             <div class="s">Flag sazonal simulada: ${s7.known_seasonal_pattern ? "sim" : "não"}</div>
           </div>
