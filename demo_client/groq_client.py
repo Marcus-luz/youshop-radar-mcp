@@ -115,6 +115,10 @@ _SCENE_POLICY_RULES: dict[str, dict[str, tuple[str, ...]]] = {
             "risco comercial alto",
             "últimas 7 dias",
             "ultimas 7 dias",
+            "assinatura_invalida",
+            "timeout_checkout_pix",
+            "endpoint_analytics_offline",
+            "erro_nao_catalogado",
         ),
     },
     "recusa_carteira": {
@@ -129,7 +133,12 @@ _SCENE_POLICY_RULES: dict[str, dict[str, tuple[str, ...]]] = {
         ),
     },
     "falso_alarme": {
-        "required": ("falso_alarme_tecnico",),
+        "required": (),
+        "required_any": (
+            "falso_alarme_tecnico",
+            "falso alarme técnico",
+            "falso alarme tecnico",
+        ),
         "forbidden": (),
     },
 }
@@ -447,7 +456,10 @@ def verify_scene_policies(scene_id: str, answer: str) -> dict[str, Any]:
 
     required_any = rules.get("required_any", ())
     if required_any and not any(opt in lowered for opt in required_any):
-        violations.append(f"ausente_linguagem_hipotese:{'|'.join(required_any)}")
+        violations.append(f"ausente_na_cena:{'|'.join(required_any)}")
+
+    if scene_id == "rascunho_contato" and re.search(r"\b\d+\.\d+\s*%", answer):
+        violations.append("proibido_na_cena:ponto_decimal_ingles")
 
     return {
         "passed": len(violations) == 0,
@@ -586,7 +598,7 @@ async def _build_system_prompt(session: ClientSession) -> tuple[str, str, str]:
         "para apoiar gerentes de contas do Comercial.\n"
         "Regras obrigatórias:\n"
         "1. Sempre consulte as ferramentas MCP antes de responder. Cite exclusivamente os valores "
-        "numéricos, prazos e categorias exatos devolvidos pelas ferramentas ou pelo guia carregado. "
+        "numéricos, prazos e categorias exatos retornados pelas ferramentas ou pelo guia. "
         "Mesmo ao explicar em linguagem simples, JAMAIS arredonde, faça aproximações ou crie "
         "analogias numéricas (não escreva 'mais de 30%', 'cerca de 23%', 'em cada 10 eventos' ou "
         "'de 0 a 100%'): copie apenas os números literais das ferramentas com todas as casas "
@@ -599,16 +611,17 @@ async def _build_system_prompt(session: ClientSession) -> tuple[str, str, str]:
         "hipótese curta de causa provável usando 'pode indicar' ou 'podem indicar' (nunca "
         "certeza absoluta) e preserve o nome exato do `risk_level` retornado.\n"
         "4. Em rascunhos de contato ao produtor, JAMAIS mencione score numérico, 'baseline', "
-        "classificação interna ou a palavra 'churn'. Use português correto ('nos últimos 7 dias', "
-        "'em relação à média dos 21 dias anteriores'), adote tom consultivo e comece com "
-        "'[RASCUNHO — REVISÃO E ENVIO HUMANO OBRIGATÓRIOS]'.\n"
+        "classificação interna, códigos com sublinhado (como `assinatura_invalida`) ou a palavra "
+        "'churn'. Use português correto ('nos últimos 7 dias', 'em relação à média dos 21 dias "
+        "anteriores'), decimais com vírgula (ex.: 32,1% e 40,1%), adote tom consultivo e comece "
+        "com '[RASCUNHO — REVISÃO E ENVIO HUMANO OBRIGATÓRIOS]'.\n"
         "5. Se uma ferramenta retornar `PRODUCER_UNAVAILABLE`, responda em no máximo 2 frases "
         "informando apenas que o produtor não está disponível na carteira autenticada e que "
         "dúvidas de escopo devem ser tratadas com a gestão comercial. Nunca sugira contornos.\n"
         "6. Se o nível for `falso_alarme_tecnico`, destaque explicitamente o que os dados NÃO "
         "comprovam (erro apenas em endpoint auxiliar sem queda de vendas e sem tickets críticos) "
         "e oriente não tratar como urgência de churn.\n"
-        "7. Responda sempre em português do Brasil, de forma objetiva e clara para não técnicos.\n\n"
+        "7. Responda sempre em português do Brasil, de forma clara para não técnicos.\n\n"
         f"Guia de exemplo carregado do MCP Resource ({playbook_uri}):\n{playbook_text}"
     )
     return playbook_uri, playbook_text, system_prompt

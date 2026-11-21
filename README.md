@@ -25,7 +25,7 @@ O **YouShop Radar MCP** organiza esse fluxo em três pilares:
 Publicada em HTML, CSS e JavaScript puros no GitHub Pages (custo zero, sem servidor dormindo e sem chave da Groq exposta no navegador), a interface organiza o protótipo em **4 abas**:
 
 1. **Painel do Gerente & Isolamento:** carteira priorizada alimentada por `docs/dashboard_data.json` (exportado diretamente do motor Python), detalhe com **gráfico semanal em SVG**, troca de gerente (`mgr_ana` ↔ `mgr_carlos`) e teste ao vivo da recusa uniforme (`PRODUCER_UNAVAILABLE`) ao tentar acessar carteira alheia ou produtor inexistente.
-2. **Simulador de Regras:** controles deslizantes de falhas de webhook, composição de erros (críticos, mistos, desconhecidos ou auxiliares), variação de vendas, ausência de baseline, tickets e sazonalidade — recalculando score e classificação na hora com selo de verificação **Paridade Python ↔ JS (11/11 casos)**.
+2. **Simulador de Regras:** controles deslizantes de falhas de webhook, composição de erros (críticos, mistos, desconhecidos ou auxiliares), variação de vendas, ausência de baseline, tickets e sazonalidade — recalculando score e classificação na hora com selo de verificação **Paridade Python ↔ JS (14/14 casos)**.
 3. **Conversa com a IA (Replay MCP):** 5 cenas reais gravadas contra o servidor MCP via `stdio`, com selo de auditoria numérica tipada e painel expansível **Raio-X MCP** exibindo prompts e payloads JSON.
 4. **Diagnóstico, Limites & Piloto:** evidências públicas de mercado (separadas dos dados simulados), limites declarados do protótipo e desenho do piloto controlado.
 
@@ -41,7 +41,7 @@ youshop-radar-mcp/
 │   │   ├── database.py
 │   │   ├── seed.py
 │   │   ├── repository.py       # Busca por manager_id, janela semiaberta (>=, <) e tickets de qualquer idade
-│   │   └── export_web.py       # Gera docs/dashboard_data.json + 11 casos de paridade Python ↔ JS
+│   │   └── export_web.py       # Gera docs/dashboard_data.json + 14 casos de paridade Python ↔ JS
 │   ├── domain/                 # Camada de Negócio e Segurança (Python puro)
 │   │   ├── scoring.py          # evaluate_risk (0–100) + alerta precoce / falso alarme / sem_baseline
 │   │   └── security.py         # Isolamento por carteira, anti-enumeração e sanitização Allowlist
@@ -55,7 +55,7 @@ youshop-radar-mcp/
 │   ├── scoring.js              # Espelho determinístico de evaluate_risk (paridade validada no CI)
 │   ├── dashboard_data.json     # Carteiras, histórico semanal e vetores de paridade gerados do Python
 │   └── replay_data.json        # Gravação real das 5 cenas + payloads MCP + auditoria tipada
-├── tests/                      # 29 testes (domínio, segurança, E2E stdio, replay e paridade Python ↔ JS)
+├── tests/                      # 33 testes (domínio, segurança, E2E stdio, replay e paridade Python ↔ JS)
 └── LICENSE                     # Licença MIT
 ```
 
@@ -77,7 +77,7 @@ youshop-radar-mcp/
 
 - **Sessão *Fail-Closed*, Homônimos e Anti-Enumeração:** nenhuma tool aceita `manager_id` vindo do modelo. O servidor exige `SESSION_MANAGER_ID` explícito no ambiente (retornando `ToolError` limpo se ausente), filtra buscas já pela carteira da sessão (suportando produtores homônimos entre gerentes) e devolve o mesmo erro (`PRODUCER_UNAVAILABLE`, sem ecoar entrada bruta) tanto para outra carteira quanto para nomes inexistentes.
 - **Minimização de Dados via Allowlist e Anti-Prompt Injection:** alinhado ao princípio da necessidade da LGPD (sem reivindicar conformidade jurídica plena), apenas métricas agregadas saem do servidor. Colunas sensíveis (`owner_email`, `tax_id`, `webhook_secret`, `buyer_email`) nunca cruzam a fronteira MCP, `producer_ref` e `channel` são validados na entrada e valores categóricos (`top_webhook_error`, `webhook_errors_by_category`, `tickets_by_category`) são validados contra listas fechadas antes de chegar ao modelo.
-- **Distinção entre Erro Crítico e Falso Alarme Técnico:** apenas quando 100% das falhas pertencem a endpoints auxiliares (`endpoint_analytics_offline`), com vendas estáveis e zero tickets críticos, o produtor é rebaixado para `falso_alarme_tecnico`. Erros críticos (`assinatura_invalida`, `timeout_checkout_pix`) ou categorias desconhecidas (por cautela) mantêm visibilidade via `alerta_tecnico_precoce` (ou risco `medio`/`alto` conforme tickets ou queda de vendas).
+- **Distinção entre Erro Crítico, Falso Alarme e Sinal Forte Isolado:** o alerta técnico é decidido pela **taxa de falhas críticas/desconhecidas** (`>= 10%`), impedindo que um evento isolado derrube o filtro de ruído auxiliar (`falso_alarme_tecnico`). Além disso, sinais fortes isolados acionam piso mínimo de atenção (`queda >= 30%` sem sazonalidade → piso 55; `>= 3` tickets críticos abertos → piso 50).
 - **Verificador Numérico Tipado e Paridade no CI:** antes de gravar `docs/replay_data.json`, o cliente audita números em pools separados por tipo (percentuais, scores, receita, contagens e unidades de tempo) e regras editoriais por cena — bloqueando a gravação em caso de violação. No CI, `tests/test_replay_integrity.py` revalida o replay e `tests/test_web_parity.py` garante que `docs/dashboard_data.json` e `docs/scoring.js` permanecem 100% fiéis ao motor Python.
 - **Zero chave de API no navegador:** a página web rotula explicitamente o que é real (servidor MCP, regras e testes) e o que é simulado (simulador em JS e replay gravado). A comunicação ao vivo com a API da Groq ocorre exclusivamente no terminal local.
 
@@ -91,7 +91,7 @@ Este é um protótipo funcional desenhado para validação técnica e demonstra�
 - **Pesos e limiares hipotéticos:** os pesos (`40%` webhook, `40%` vendas, `20%` tickets) e todos os limiares centralizados em `config.py` são hipóteses iniciais a calibrar com histórico real.
 - **Sazonalidade simulada:** em uma janela sintética de 28 dias não há série histórica anual; o padrão sazonal é modelado por uma flag fixa por produtor (`seasonal_pattern`) apenas para demonstrar o comportamento da regra.
 - **Identidade simulada por variável de ambiente:** `SESSION_MANAGER_ID` substitui a camada de autenticação neste protótipo; em produção seria vinculada a OAuth2/JWT corporativo e RBAC.
-- **Simulador web em JavaScript:** `docs/scoring.js` é um espelho do motor Python para permitir testes interativos sem servidor backend; sua fidelidade é verificada contra 11 casos gerados pelo Python no CI e no próprio navegador.
+- **Simulador web em JavaScript:** `docs/scoring.js` é um espelho do motor Python para permitir testes interativos sem servidor backend; sua fidelidade é verificada contra 14 casos gerados pelo Python no CI e no próprio navegador.
 - **Falibilidade da IA:** mesmo com cálculo determinístico, prompt restritivo e verificador tipado, LLMs podem interpretar contexto de forma imprecisa — por isso o fluxo é somente leitura e exige revisão humana antes de qualquer contato.
 - **Envio externo para API da Groq:** no cliente de demonstração local, os retornos minimizados das tools MCP são enviados à API da Groq (servidores nos EUA). Antes de operar com dados reais de clientes, seria necessária avaliação jurídica/DPA ou migração para inferência em ambiente controlado.
 - **Feedback de "alerta útil" fora do escopo do protótipo:** o mecanismo de marcação de utilidade pelo gerente de contas ainda não foi implementado (o servidor atual é estritamente somente leitura) e está previsto para a fase de piloto.
@@ -128,7 +128,7 @@ uv run python -m youshop_radar.data.export_web
 # 4. Conferir a tabela determinística de scores dos 9 produtores
 uv run python -m youshop_radar.domain.scoring
 
-# 5. Rodar lint e suíte de 29 testes automatizados (inclui E2E stdio, replay e paridade Python ↔ JS)
+# 5. Rodar lint e suíte de 33 testes automatizados (inclui E2E stdio, replay e paridade Python ↔ JS)
 uv run ruff check src tests demo_client
 uv run pytest -v
 ```
@@ -145,7 +145,7 @@ uv run python demo_client/groq_client.py --record
 # Conversar livremente no terminal com o servidor MCP via stdio
 uv run python demo_client/groq_client.py --interactive
 
-# Visualizar o protótipo web interativo localmente ([http://127.0.0.1:8000](http://127.0.0.1:8000))
+# Visualizar o protótipo web interativo localmente (http://127.0.0.1:8000)
 uv run python -m http.server 8000 --bind 127.0.0.1 --directory docs
 ```
 

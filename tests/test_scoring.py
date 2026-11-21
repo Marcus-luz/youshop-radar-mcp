@@ -9,7 +9,11 @@ from pathlib import Path
 
 from youshop_radar.config import BASELINE_WINDOW_DAYS, RECENT_WINDOW_DAYS, REFERENCE_DATE
 from youshop_radar.data.repository import RadarRepository
-from youshop_radar.domain.scoring import compute_producer_signals, compute_weekly_history
+from youshop_radar.domain.scoring import (
+    compute_producer_signals,
+    compute_weekly_history,
+    evaluate_risk,
+)
 
 
 def test_score_always_between_0_and_100(repo: RadarRepository) -> None:
@@ -219,3 +223,42 @@ def test_zero_baseline_is_reported_as_sem_baseline(fresh_db_path: Path) -> None:
     assert result["signals_last_7d"]["sales_variation_vs_baseline_pct"] is None
     assert result["signals_last_7d"]["baseline_status"] == "sem_baseline"
     assert result["risk_level"] == "sem_baseline"
+
+
+def test_isolated_critical_error_with_auxiliary_errors_stays_false_alarm() -> None:
+    """28 falhas auxiliares + 1 crítica isolada (0,7%) não deve derrubar o filtro de ruído."""
+    score, level = evaluate_risk(
+        webhook_failure_rate_pct=20.7,
+        errors_by_category={"endpoint_analytics_offline": 28, "assinatura_invalida": 1},
+        sales_variation_pct=7.5,
+        open_critical_tickets=0,
+        seasonal_pattern=False,
+    )
+    assert level == "falso_alarme_tecnico"
+    assert score <= 45
+
+
+def test_severe_isolated_sales_drop_triggers_medium_floor() -> None:
+    """Queda severa de vendas (-45,6%) sem sazonalidade precisa aparecer (piso médio >= 55)."""
+    score, level = evaluate_risk(
+        webhook_failure_rate_pct=0.0,
+        errors_by_category={},
+        sales_variation_pct=-45.6,
+        open_critical_tickets=0,
+        seasonal_pattern=False,
+    )
+    assert level == "medio"
+    assert score >= 55
+
+
+def test_severe_isolated_critical_tickets_trigger_medium_floor() -> None:
+    """3 tickets críticos abertos sozinhos não podem ficar invisíveis abaixo de 50."""
+    score, level = evaluate_risk(
+        webhook_failure_rate_pct=0.0,
+        errors_by_category={},
+        sales_variation_pct=0.0,
+        open_critical_tickets=3,
+        seasonal_pattern=False,
+    )
+    assert level == "medio"
+    assert score >= 50

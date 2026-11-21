@@ -1,6 +1,6 @@
 /**
  * Espelho determinístico da função evaluate_risk() de src/youshop_radar/domain/scoring.py.
- * Validado automaticamente contra 11 casos gerados pelo Python em tests/test_web_parity.py.
+ * Validado automaticamente contra 14 casos gerados pelo Python em tests/test_web_parity.py.
  */
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
@@ -31,6 +31,12 @@
     const openTickets = Number(input.open_critical_tickets || 0);
     const seasonalPattern = Boolean(input.seasonal_pattern);
 
+    const criticalWebhookThreshold = Number(cfg.critical_webhook_alert_threshold_pct ?? 10.0);
+    const severeSalesThreshold = Number(cfg.severe_sales_drop_threshold_pct ?? -30.0);
+    const severeSalesMinScore = Number(cfg.severe_sales_drop_min_score ?? 55);
+    const severeTicketsThreshold = Number(cfg.severe_tickets_threshold ?? 3);
+    const severeTicketsMinScore = Number(cfg.severe_tickets_min_score ?? 50);
+
     let failedWh = 0;
     let nonAuxFailed = 0;
     for (const [err, qty] of Object.entries(errorsMap)) {
@@ -41,7 +47,7 @@
       }
     }
 
-    const onlyAuxiliaryErrors = failedWh > 0 && nonAuxFailed === 0;
+    const criticalWebhookRate = failedWh > 0 ? (webhookRate * nonAuxFailed) / failedWh : 0.0;
     const baselineStatus = salesVar !== null ? "ok" : "sem_baseline";
 
     const webhookSubscore = Math.min(100.0, (webhookRate / cfg.webhook_scale_cap_pct) * 100.0);
@@ -57,15 +63,27 @@
 
     const salesIsStable = salesVar !== null && salesVar >= cfg.sales_stable_floor_pct;
     const highWebhookFail = webhookRate >= cfg.webhook_alert_threshold_pct;
+    const hasCriticalOrUnknownAlert = criticalWebhookRate >= criticalWebhookThreshold;
 
     const isTechnicalFalseAlarm =
-      highWebhookFail && onlyAuxiliaryErrors && salesIsStable && openTickets === 0;
-    const hasCriticalOrUnknownAlert = highWebhookFail && nonAuxFailed > 0;
+      highWebhookFail &&
+      failedWh > 0 &&
+      !hasCriticalOrUnknownAlert &&
+      salesIsStable &&
+      openTickets === 0;
     const isSeasonalDip =
       seasonalPattern &&
       baselineStatus === "ok" &&
       webhookRate < cfg.seasonal_webhook_max_pct &&
       openTickets === 0;
+
+    let severeFloor = 0;
+    if (salesVar !== null && salesVar <= severeSalesThreshold && !seasonalPattern) {
+      severeFloor = Math.max(severeFloor, severeSalesMinScore);
+    }
+    if (openTickets >= severeTicketsThreshold) {
+      severeFloor = Math.max(severeFloor, severeTicketsMinScore);
+    }
 
     let riskScore;
     let riskLevel;
@@ -75,13 +93,13 @@
       riskScore = Math.min(rawScore, cfg.false_alarm_max_score);
       riskLevel = "falso_alarme_tecnico";
       ruleReason =
-        "100% das falhas estão em endpoint auxiliar (analytics), vendas seguem estáveis e não há tickets críticos — rebaixado para evitar fadiga de alertas.";
+        "Falhas concentradas em endpoint auxiliar (taxa crítica abaixo de 10%), vendas estáveis e zero tickets críticos — rebaixado para evitar fadiga de alertas.";
     } else if (hasCriticalOrUnknownAlert) {
       const impactBonus = Math.min(
         cfg.early_tech_impact_bonus_cap,
         pythonRound(cfg.weight_sales * salesSubscore + cfg.weight_tickets * ticketSubscore)
       );
-      riskScore = Math.max(rawScore, cfg.early_tech_alert_min_score + impactBonus);
+      riskScore = Math.max(rawScore, cfg.early_tech_alert_min_score + impactBonus, severeFloor);
       if (riskScore >= cfg.risk_high_threshold) {
         riskLevel = "alto";
         ruleReason =
@@ -89,7 +107,7 @@
       } else if ((salesIsStable || baselineStatus === "sem_baseline") && openTickets === 0) {
         riskLevel = "alerta_tecnico_precoce";
         ruleReason =
-          "Há falhas críticas ou de categoria desconhecida (>=15%) antes mesmo das vendas caírem — visível para ação técnica preventiva.";
+          "Taxa de falhas críticas ou desconhecidas (>=10%) antes mesmo das vendas caírem — visível para ação técnica preventiva.";
       } else {
         riskLevel = "medio";
         ruleReason =
@@ -100,22 +118,29 @@
       riskLevel = "baixo_sazonalidade";
       ruleReason =
         "Queda isolada em conta com padrão sazonal simulado, sem falhas relevantes de webhook e sem tickets críticos.";
-    } else if (baselineStatus === "sem_baseline" && rawScore < cfg.risk_medium_threshold) {
-      riskScore = rawScore;
-      riskLevel = "sem_baseline";
-      ruleReason =
-        "Conta sem histórico de vendas nos 21 dias anteriores — o sistema evita classificar como estável por falta de referência.";
     } else {
-      riskScore = rawScore;
-      if (riskScore >= cfg.risk_high_threshold) {
-        riskLevel = "alto";
-        ruleReason = "Combinação de queda de vendas e/ou tickets críticos ultrapassou o limiar de risco alto (>=70).";
-      } else if (riskScore >= cfg.risk_medium_threshold) {
-        riskLevel = "medio";
-        ruleReason = "Sinais combinados atingiram o limiar de atenção comercial (>=50).";
+      const effectiveScore = Math.max(rawScore, severeFloor);
+      if (baselineStatus === "sem_baseline" && effectiveScore < cfg.risk_medium_threshold) {
+        riskScore = effectiveScore;
+        riskLevel = "sem_baseline";
+        ruleReason =
+          "Conta sem histórico de vendas nos 21 dias anteriores — o sistema evita classificar como estável por falta de referência.";
       } else {
-        riskLevel = "baixo";
-        ruleReason = "Operação dentro dos parâmetros normais nos últimos 7 dias.";
+        riskScore = effectiveScore;
+        if (riskScore >= cfg.risk_high_threshold) {
+          riskLevel = "alto";
+          ruleReason =
+            "Combinação de queda de vendas e/ou tickets críticos ultrapassou o limiar de risco alto (>=70).";
+        } else if (riskScore >= cfg.risk_medium_threshold) {
+          riskLevel = "medio";
+          ruleReason =
+            severeFloor > rawScore
+              ? "Piso de severidade acionado por sinal forte isolado (queda >=30% sem sazonalidade ou >=3 tickets críticos abertos)."
+              : "Sinais combinados atingiram o limiar de atenção comercial (>=50).";
+        } else {
+          riskLevel = "baixo";
+          ruleReason = "Operação dentro dos parâmetros normais nos últimos 7 dias.";
+        }
       }
     }
 

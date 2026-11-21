@@ -19,8 +19,13 @@
     "sales_drop_scale_cap_pct": 40.0,
     "critical_tickets_scale_cap": 3.0,
     "webhook_alert_threshold_pct": 15.0,
+    "critical_webhook_alert_threshold_pct": 10.0,
     "sales_stable_floor_pct": -5.0,
     "seasonal_webhook_max_pct": 5.0,
+    "severe_sales_drop_threshold_pct": -30.0,
+    "severe_sales_drop_min_score": 55,
+    "severe_tickets_threshold": 3,
+    "severe_tickets_min_score": 50,
     "false_alarm_max_score": 45,
     "early_tech_alert_min_score": 55,
     "early_tech_impact_bonus_cap": 15,
@@ -926,6 +931,42 @@
       "seasonal_pattern": false,
       "expected_risk_score": 0,
       "expected_risk_level": "baixo"
+    },
+    {
+      "id": "auxiliar_com_1_critico_isolado",
+      "label": "28 auxiliares + 1 crítico isolado (0,7%)",
+      "webhook_failure_rate_pct": 20.7,
+      "errors_by_category": {
+        "endpoint_analytics_offline": 28,
+        "assinatura_invalida": 1
+      },
+      "sales_variation_pct": 7.5,
+      "open_critical_tickets": 0,
+      "seasonal_pattern": false,
+      "expected_risk_score": 28,
+      "expected_risk_level": "falso_alarme_tecnico"
+    },
+    {
+      "id": "queda_severa_isolada",
+      "label": "Queda severa isolada (-45,6% sem erro/ticket)",
+      "webhook_failure_rate_pct": 0.0,
+      "errors_by_category": {},
+      "sales_variation_pct": -45.6,
+      "open_critical_tickets": 0,
+      "seasonal_pattern": false,
+      "expected_risk_score": 55,
+      "expected_risk_level": "medio"
+    },
+    {
+      "id": "tickets_criticos_isolados",
+      "label": "3 tickets críticos isolados (sem queda/webhook)",
+      "webhook_failure_rate_pct": 0.0,
+      "errors_by_category": {},
+      "sales_variation_pct": 0.0,
+      "open_critical_tickets": 3,
+      "seasonal_pattern": false,
+      "expected_risk_score": 50,
+      "expected_risk_level": "medio"
     }
   ]
 }

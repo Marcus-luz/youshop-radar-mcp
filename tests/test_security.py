@@ -144,3 +144,35 @@ def test_no_pii_or_secrets_leak_in_responses(repo: RadarRepository) -> None:
 
     for secret in sensitive_values:
         assert secret not in serialized
+
+
+def test_producer_ref_accepts_apostrophe_and_parentheses(fresh_db_path: Path) -> None:
+    """Nomes comerciais reais com apóstrofo ou parênteses não podem ser bloqueados."""
+    assert sanitize_producer_ref("Casa d'Água Cosméticos") == "Casa d'Água Cosméticos"
+    assert sanitize_producer_ref("Casa d’Água (Matriz)") == "Casa d’Água (Matriz)"
+
+    with closing(sqlite3.connect(fresh_db_path)) as conn:
+        conn.execute(
+            """
+            INSERT INTO producers (
+                id, manager_id, name, category, active_creators_count,
+                seasonal_pattern, owner_email, tax_id, webhook_secret
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "prod_casa_dagua",
+                "mgr_ana",
+                "Casa d'Água Cosméticos",
+                "cosméticos",
+                4,
+                0,
+                "contato@casadagua.example",
+                "22.222.222/0001-22",
+                "whsec_casa_dagua_123456",
+            ),
+        )
+        conn.commit()
+
+    repo = RadarRepository(fresh_db_path)
+    result = get_signals_for_session(repo, "mgr_ana", "Casa d'Água Cosméticos")
+    assert result["producer_id"] == "prod_casa_dagua"

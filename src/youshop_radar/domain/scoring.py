@@ -15,6 +15,7 @@ from youshop_radar.config import (
     BASELINE_WINDOW_DAYS,
     CRITICAL_TICKET_CATEGORIES,
     CRITICAL_TICKETS_SCALE_CAP,
+    CRITICAL_WEBHOOK_ALERT_THRESHOLD_PCT,
     EARLY_TECH_ALERT_MIN_SCORE,
     EARLY_TECH_IMPACT_BONUS_CAP,
     FALSE_ALARM_MAX_SCORE,
@@ -26,6 +27,10 @@ from youshop_radar.config import (
     SALES_STABLE_FLOOR_PCT,
     SEASONAL_DIP_MAX_SCORE,
     SEASONAL_WEBHOOK_MAX_PCT,
+    SEVERE_SALES_DROP_MIN_SCORE,
+    SEVERE_SALES_DROP_THRESHOLD_PCT,
+    SEVERE_TICKETS_MIN_SCORE,
+    SEVERE_TICKETS_THRESHOLD,
     WEBHOOK_ALERT_THRESHOLD_PCT,
     WEBHOOK_SCALE_CAP_PCT,
     WEIGHT_SALES,
@@ -68,7 +73,9 @@ def evaluate_risk(
     non_auxiliary_failed = sum(
         qty for err, qty in errors_by_category.items() if err not in AUXILIARY_WEBHOOK_ERRORS
     )
-    only_auxiliary_errors = failed_wh > 0 and non_auxiliary_failed == 0
+    critical_webhook_rate_pct = (
+        (webhook_failure_rate_pct * non_auxiliary_failed) / failed_wh if failed_wh > 0 else 0.0
+    )
     baseline_status = "ok" if sales_variation_pct is not None else "sem_baseline"
 
     webhook_subscore = min(100.0, (webhook_failure_rate_pct / WEBHOOK_SCALE_CAP_PCT) * 100.0)
@@ -86,20 +93,33 @@ def evaluate_risk(
         sales_variation_pct is not None and sales_variation_pct >= SALES_STABLE_FLOOR_PCT
     )
     high_webhook_fail = webhook_failure_rate_pct >= WEBHOOK_ALERT_THRESHOLD_PCT
+    has_critical_or_unknown_webhook_alert = (
+        critical_webhook_rate_pct >= CRITICAL_WEBHOOK_ALERT_THRESHOLD_PCT
+    )
 
     is_technical_false_alarm = (
         high_webhook_fail
-        and only_auxiliary_errors
+        and failed_wh > 0
+        and not has_critical_or_unknown_webhook_alert
         and sales_is_stable
         and open_critical_tickets == 0
     )
-    has_critical_or_unknown_webhook_alert = high_webhook_fail and non_auxiliary_failed > 0
     is_seasonal_dip = (
         bool(seasonal_pattern)
         and baseline_status == "ok"
         and webhook_failure_rate_pct < SEASONAL_WEBHOOK_MAX_PCT
         and open_critical_tickets == 0
     )
+
+    severe_floor = 0
+    if (
+        sales_variation_pct is not None
+        and sales_variation_pct <= SEVERE_SALES_DROP_THRESHOLD_PCT
+        and not seasonal_pattern
+    ):
+        severe_floor = max(severe_floor, SEVERE_SALES_DROP_MIN_SCORE)
+    if open_critical_tickets >= SEVERE_TICKETS_THRESHOLD:
+        severe_floor = max(severe_floor, SEVERE_TICKETS_MIN_SCORE)
 
     if is_technical_false_alarm:
         risk_score = min(raw_score, FALSE_ALARM_MAX_SCORE)
@@ -109,7 +129,7 @@ def evaluate_risk(
             EARLY_TECH_IMPACT_BONUS_CAP,
             round(WEIGHT_SALES * sales_subscore + WEIGHT_TICKETS * ticket_subscore),
         )
-        risk_score = max(raw_score, EARLY_TECH_ALERT_MIN_SCORE + impact_bonus)
+        risk_score = max(raw_score, EARLY_TECH_ALERT_MIN_SCORE + impact_bonus, severe_floor)
         if risk_score >= RISK_HIGH_THRESHOLD:
             risk_level = "alto"
         elif (sales_is_stable or baseline_status == "sem_baseline") and open_critical_tickets == 0:
@@ -119,20 +139,21 @@ def evaluate_risk(
     elif is_seasonal_dip:
         risk_score = min(raw_score, SEASONAL_DIP_MAX_SCORE)
         risk_level = "baixo_sazonalidade"
-    elif baseline_status == "sem_baseline" and raw_score < RISK_MEDIUM_THRESHOLD:
-        risk_score = raw_score
-        risk_level = "sem_baseline"
     else:
-        risk_score = raw_score
-        if risk_score >= RISK_HIGH_THRESHOLD:
-            risk_level = "alto"
-        elif risk_score >= RISK_MEDIUM_THRESHOLD:
-            risk_level = "medio"
+        effective_score = max(raw_score, severe_floor)
+        if baseline_status == "sem_baseline" and effective_score < RISK_MEDIUM_THRESHOLD:
+            risk_score = effective_score
+            risk_level = "sem_baseline"
         else:
-            risk_level = "baixo"
+            risk_score = effective_score
+            if risk_score >= RISK_HIGH_THRESHOLD:
+                risk_level = "alto"
+            elif risk_score >= RISK_MEDIUM_THRESHOLD:
+                risk_level = "medio"
+            else:
+                risk_level = "baixo"
 
     return max(0, min(100, int(risk_score))), risk_level
-
 
 def compute_producer_signals(repo: RadarRepository, producer_ref: str) -> dict[str, Any]:
     """Calcula os sinais dos últimos 7 dias contra o baseline de 21 dias."""

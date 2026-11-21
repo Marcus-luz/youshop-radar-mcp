@@ -75,7 +75,7 @@ ALLOWED_HISTORY_FIELDS = frozenset(
 UNAVAILABLE_ERROR_CODE = "PRODUCER_UNAVAILABLE"
 UNAVAILABLE_ERROR_MESSAGE = "Produtor não encontrado na carteira autenticada."
 
-_PRODUCER_REF_RE = re.compile(r"^[A-Za-z0-9À-ÿ _.\-&/]{1,80}\Z")
+_PRODUCER_REF_RE = re.compile(r"^[A-Za-z0-9À-ÿ _.\-&/'’()]{1,80}\Z")
 
 
 class ProducerUnavailableError(PermissionError):
